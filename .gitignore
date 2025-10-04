@@ -1,0 +1,8 @@
+# Dependencies
+node_modules/
+
+# Next.js
+web/.next/
+
+# Local env files
+.env

@@ -1,0 +1,38 @@
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function GET(request: NextRequest) {
+  try {
+    const apiUrl = process.env.API_BASE_URL;
+
+    // Forward the Authorization header from the frontend request
+    const authHeader = request.headers.get('authorization');
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    
+    if (authHeader) {
+      headers['Authorization'] = authHeader;
+    }
+
+    const response = await fetch(`${apiUrl}/api/database/health`, {
+      method: 'GET',
+      headers,
+    });
+
+    if (!response.ok) {
+      throw new Error(`API responded with status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    return NextResponse.json(data, { status: 200 });
+
+  } catch (error) {
+    console.error('Database health API error:', error);
+    return NextResponse.json(
+      { error: 'Failed to check database health' },
+      { status: 500 }
+    );
+  }
+}
+
