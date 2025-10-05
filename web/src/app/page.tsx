@@ -232,7 +232,7 @@ export default function HomePage() {
                 <span>Reports & Analytics</span>
               </CardTitle>
               <CardDescription className="text-gray-800 font-semibold">
-                View detailed reports and business insights
+                View detailed reports, recent activities and business insights
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
