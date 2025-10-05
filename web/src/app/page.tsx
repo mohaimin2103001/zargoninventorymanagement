@@ -195,7 +195,7 @@ export default function HomePage() {
                 <span>Stock Management</span>
               </CardTitle>
               <CardDescription className="text-gray-800 font-semibold">
-                View, add, and manage your product inventory
+                View, add, edit and manage your product inventory
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
