@@ -134,6 +134,7 @@ export class DatabaseManager extends EventEmitter {
   private async performFailover(): Promise<void> {
     try {
       if (!this.mirrorConnection || this.mirrorConnection.readyState !== 1) {
+        console.log('\nstate:', this.mirrorConnection?.readyState);
         logger.error('❌ Mirror database not available for failover');
         return;
       }

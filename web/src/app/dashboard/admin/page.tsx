@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { ProfileUpdateForm } from '@/components/ui/profile-update-form';
 import { StaffManagement } from '@/components/ui/staff-management';
 import { ActivityReport } from '@/components/ui/activity-report';
@@ -17,6 +18,7 @@ interface User {
 }
 
 export default function AdminPage() {
+  const { updateUser } = useAuth();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +67,12 @@ export default function AdminPage() {
   }, []);
 
   const handleProfileUpdate = (updatedProfile: any) => {
-    setCurrentUser(prev => prev ? { ...prev, ...updatedProfile } : null);
+    const updatedUser = currentUser ? { ...currentUser, ...updatedProfile } : null;
+    setCurrentUser(updatedUser);
+    // Update the auth context so the header refreshes
+    if (updatedUser) {
+      updateUser(updatedUser as any);
+    }
   };
 
   if (loading) {

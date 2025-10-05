@@ -64,7 +64,7 @@ export default function CustomerRankingsPage() {
         return;
       }
 
-      const response = await fetch(`${process.env.API_BASE_URL}/api/customer-rankings?timespan=${timespan}`, {
+      const response = await fetch(`/api/analytics/customer-rankings?timespan=${timespan}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

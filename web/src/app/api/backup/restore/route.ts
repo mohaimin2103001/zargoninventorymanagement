@@ -19,11 +19,12 @@ export async function POST(request: NextRequest) {
     console.log('Proxy: Backend backup restore response status:', response.status);
     
     if (!response.ok) {
-      const errorText = await response.text();
-      console.log('Proxy: Backend backup restore error:', errorText);
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      console.log('Proxy: Backend backup restore error:', errorData);
+      // Return as 200 so frontend can display the message properly
       return NextResponse.json(
-        { error: { message: 'Failed to restore backup' } },
-        { status: response.status }
+        { error: errorData.error || 'Failed to restore backup', disabled: true },
+        { status: 200 }
       );
     }
 

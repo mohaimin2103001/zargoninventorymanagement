@@ -17,11 +17,12 @@ export async function GET(request: NextRequest) {
     console.log('Proxy: Backend backup health response status:', response.status);
     
     if (!response.ok) {
-      const errorText = await response.text();
-      console.log('Proxy: Backend backup health error:', errorText);
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      console.log('Proxy: Backend backup health error:', errorData);
+      // Return as 200 so frontend can display the message properly
       return NextResponse.json(
-        { error: { message: 'Failed to fetch backup health' } },
-        { status: response.status }
+        { error: errorData.error || 'Failed to fetch backup health', disabled: true },
+        { status: 200 }
       );
     }
 

@@ -17,11 +17,12 @@ export async function GET(request: NextRequest) {
     console.log('Proxy: Backend backup status response status:', response.status);
     
     if (!response.ok) {
-      const errorText = await response.text();
-      console.log('Proxy: Backend backup status error:', errorText);
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      console.log('Proxy: Backend backup status error:', errorData);
+      // Return as 200 so frontend can display the message properly
       return NextResponse.json(
-        { error: { message: 'Failed to fetch backup status' } },
-        { status: response.status }
+        { error: errorData.error || 'Failed to fetch backup status', disabled: true },
+        { status: 200 }
       );
     }
 

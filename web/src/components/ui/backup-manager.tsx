@@ -8,40 +8,42 @@ import { Download, Database, Shield, Clock, CheckCircle, AlertCircle, Server, Ha
 import { api } from '@/lib/api';
 
 interface BackupStatus {
-  isInitialized: boolean;
-  totalBackups: number;
+  isInitialized?: boolean;
+  totalBackups?: number;
   latestBackup?: {
     fileName: string;
     size: number;
     created: Date;
     type: string;
   };
-  totalSize: number;
-  backups: Array<{
+  totalSize?: number;
+  backups?: Array<{
     fileName: string;
     size: number;
     created: Date;
     type: string;
   }>;
-  retentionDays: number;
-  backupPath: string;
+  retentionDays?: number;
+  backupPath?: string;
   error?: string;
+  disabled?: boolean;
 }
 
 interface HealthStatus {
-  status: 'healthy' | 'unhealthy';
-  database: {
+  status?: 'healthy' | 'unhealthy';
+  database?: {
     connected: boolean;
     collections: number;
     storageSize: string;
     dataSize: string;
   };
-  backup: {
+  backup?: {
     initialized: boolean;
     path: string;
     mirrorEnabled: boolean;
   };
   error?: string;
+  disabled?: boolean;
 }
 
 export function BackupManager() {
@@ -66,9 +68,15 @@ export function BackupManager() {
   const fetchBackupStatus = async () => {
     try {
       const response = await api.get('/backup/status');
-      setBackupStatus(response.data);
+      // Check if the feature is disabled
+      if (response.data.error) {
+        setBackupStatus({ error: response.data.error, disabled: response.data.disabled });
+      } else {
+        setBackupStatus(response.data);
+      }
     } catch (error) {
       console.error('Failed to fetch backup status:', error);
+      setBackupStatus({ error: 'Network error', disabled: false });
     } finally {
       setStatusLoading(false);
     }
@@ -77,9 +85,15 @@ export function BackupManager() {
   const fetchHealthStatus = async () => {
     try {
       const response = await api.get('/backup/health');
-      setHealthStatus(response.data);
+      // Check if the feature is disabled
+      if (response.data.error) {
+        setHealthStatus({ error: response.data.error, disabled: response.data.disabled });
+      } else {
+        setHealthStatus(response.data);
+      }
     } catch (error) {
       console.error('Failed to fetch health status:', error);
+      setHealthStatus({ error: 'Network error', disabled: false });
     }
   };
 
@@ -88,11 +102,14 @@ export function BackupManager() {
     try {
       const response = await api.post('/backup/create', { type });
       
-      if (response.status === 200) {
+      // Check if the response contains an error (feature disabled)
+      if (response.data.error) {
+        alert(`ℹ️ ${response.data.error}`);
+      } else if (response.status === 200 && response.data.backupPath) {
         alert(`✅ ${type} backup created successfully!\n\nLocation: ${response.data.backupPath}`);
         fetchBackupStatus();
       } else {
-        alert(`❌ Backup creation failed: ${response.data.error}`);
+        alert(`❌ Backup creation failed: ${response.data.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Backup creation failed:', error);
@@ -144,7 +161,22 @@ export function BackupManager() {
       </div>
 
       {/* System Health Status */}
-      {healthStatus && (
+      {healthStatus && healthStatus.error ? (
+        <Card className="border-2 border-yellow-200 bg-yellow-50">
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <AlertCircle className="w-5 h-5 text-yellow-600" />
+              <span>File-Based Backups Disabled</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-gray-700">{healthStatus.error}</p>
+            <p className="text-sm text-gray-600 mt-2">
+              Please use MongoDB Atlas automated backups for production environments.
+            </p>
+          </CardContent>
+        </Card>
+      ) : healthStatus && healthStatus.database && healthStatus.backup ? (
         <Card className={`border-2 ${healthStatus.status === 'healthy' ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
@@ -190,7 +222,7 @@ export function BackupManager() {
             </div>
           </CardContent>
         </Card>
-      )}
+      ) : null}
 
       {/* Backup Status Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

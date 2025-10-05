@@ -192,7 +192,7 @@ export default function HomePage() {
             <CardHeader className="bg-gradient-to-r from-blue-100 to-blue-200 border-b-2 border-blue-300">
               <CardTitle className="flex items-center space-x-3 text-black font-black">
                 <Package className="h-7 w-7 text-blue-700" />
-                <span>Inventory Management</span>
+                <span>Stock Management</span>
               </CardTitle>
               <CardDescription className="text-gray-800 font-semibold">
                 View, add, and manage your product inventory
