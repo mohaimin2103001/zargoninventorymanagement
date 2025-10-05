@@ -73,9 +73,10 @@ export default function HomePage() {
               </div>
             </div>
             <div className="flex items-center space-x-4">
-              <div className="text-right bg-blue-50 px-3 py-2 rounded-lg border border-blue-200">
-                <p className="text-sm font-bold text-black">{user.name}</p>
-                <p className="text-xs text-blue-700 capitalize font-semibold">{user.role}</p>
+              <div className="bg-blue-50 px-3 py-2 rounded-lg border border-blue-200">
+                <p className="text-sm font-bold text-black">
+                  {user.name} <span className="text-xs text-blue-700 capitalize font-semibold">({user.role})</span>
+                </p>
               </div>
               <Button
                 variant="outline"
