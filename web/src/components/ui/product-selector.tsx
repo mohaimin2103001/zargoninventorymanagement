@@ -9,6 +9,8 @@ interface ProductSelectorProps {
   items: InventoryItem[];
   selectedCode: string;
   onSelect: (code: string) => void;
+  onSearch?: (searchTerm: string) => void;
+  isSearching?: boolean;
   disabled?: boolean;
   placeholder?: string;
   variant?: 'dark' | 'light';
@@ -18,6 +20,8 @@ export function ProductSelector({
   items,
   selectedCode,
   onSelect,
+  onSearch,
+  isSearching = false,
   disabled = false,
   placeholder = "Select product...",
   variant = 'dark'
@@ -25,6 +29,7 @@ export function ProductSelector({
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const selectedItem = items.find(item => item.finalCode === selectedCode);
 
@@ -33,6 +38,25 @@ export function ProductSelector({
     item.color.toLowerCase().includes(searchTerm.toLowerCase()) ||
     item.description?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Debounced server-side search
+  useEffect(() => {
+    if (!onSearch) return;
+    
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    
+    searchTimeoutRef.current = setTimeout(() => {
+      onSearch(searchTerm);
+    }, 800); // 800ms delay to avoid too many API calls
+    
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchTerm, onSearch]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -107,10 +131,16 @@ export function ProductSelector({
         }`}>
           <div className="p-2">
             <div className="relative">
-              <Search className={`absolute left-2 top-2.5 w-4 h-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
+              {isSearching ? (
+                <div className={`absolute left-2 top-2.5 w-4 h-4 animate-spin rounded-full border-2 border-t-transparent ${
+                  isDark ? 'border-gray-400' : 'border-gray-500'
+                }`} />
+              ) : (
+                <Search className={`absolute left-2 top-2.5 w-4 h-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
+              )}
               <input
                 type="text"
-                placeholder="Search products..."
+                placeholder={isSearching ? "Searching..." : "Search all products..."}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className={`w-full pl-8 pr-3 py-2 border rounded text-sm focus:outline-none ${

@@ -310,9 +310,19 @@ export default function OrdersPage() {
     }
   };
 
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<InventoryItem[]>([]);
+  const [defaultItems, setDefaultItems] = useState<InventoryItem[]>([]);
+
   const fetchInventoryItems = async () => {
     try {
-      const response = await inventoryAPI.getAll({ inStockOnly: true });
+      const response = await inventoryAPI.getAll({ 
+        inStockOnly: true,
+        pageSize: 200, // Load more default items for better initial selection
+        page: 1,
+        sort: '-createdAt'
+      });
+      setDefaultItems(response.data.data);
       setInventoryItems(response.data.data);
       console.log('=== INVENTORY ITEMS LOADED ===');
       console.log('Total items:', response.data.data.length);
@@ -327,6 +337,79 @@ export default function OrdersPage() {
       console.error('Failed to fetch inventory:', error);
     }
   };
+
+  // Server-side search function for large inventories
+  const searchAllInventory = useCallback(async (searchTerm: string) => {
+    if (!searchTerm.trim() || searchTerm.length < 2) {
+      // Reset to default items when search is cleared
+      setInventoryItems(defaultItems);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      console.log('=== SEARCHING ALL INVENTORY ===');
+      console.log('Search term:', searchTerm);
+      
+      // Search by finalCode first (most common)
+      const codeResponse = await inventoryAPI.getAll({ 
+        inStockOnly: true,
+        finalCode: searchTerm,
+        pageSize: 100,
+        page: 1,
+        sort: '-createdAt'
+      });
+      
+      let allResults = [...codeResponse.data.data];
+      
+      // Search by color if no results or few results from finalCode
+      if (allResults.length < 10) {
+        const colorResponse = await inventoryAPI.getAll({ 
+          inStockOnly: true,
+          color: searchTerm,
+          pageSize: 100,
+          page: 1,
+          sort: '-createdAt'
+        });
+        
+        // Merge results, avoiding duplicates
+        const newResults = colorResponse.data.data.filter(
+          (item: InventoryItem) => !allResults.some(existing => existing.finalCode === item.finalCode)
+        );
+        allResults = [...allResults, ...newResults];
+      }
+      
+      // Search by description if still few results
+      if (allResults.length < 10) {
+        const descResponse = await inventoryAPI.getAll({ 
+          inStockOnly: true,
+          description: searchTerm,
+          pageSize: 100,
+          page: 1,
+          sort: '-createdAt'
+        });
+        
+        // Merge results, avoiding duplicates
+        const newResults = descResponse.data.data.filter(
+          (item: InventoryItem) => !allResults.some(existing => existing.finalCode === item.finalCode)
+        );
+        allResults = [...allResults, ...newResults];
+      }
+      
+      setSearchResults(allResults);
+      setInventoryItems(allResults);
+      console.log('=== SEARCH COMPLETED ===');
+      console.log('Search term:', searchTerm);
+      console.log('Results found:', allResults.length);
+    } catch (error) {
+      console.error('Failed to search inventory:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [defaultItems]);
+
+
 
   // Multi-item order helpers
   const addNewItem = () => {
@@ -1458,9 +1541,10 @@ export default function OrdersPage() {
       </div>
 
       {/* Orders Table */}
-      <div className="overflow-x-auto rounded-lg border-2 border-gray-200 bg-white shadow-lg">
-        <div className="min-w-[2400px]"> {/* Increased minimum width to accommodate tracking code column */}
-          <Table>
+      <div className="rounded-lg border-2 border-gray-200 bg-white shadow-lg overflow-hidden">
+        <div className="overflow-auto" style={{ scrollbarGutter: 'stable', maxHeight: orders.orders.length > 10 ? '90vh' : 'auto' }}>
+          <div className="min-w-[2400px]">
+            <Table className="w-full">
             <TableHeader>
               <TableRow className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-300">
                 <TableHead className="text-gray-900 font-bold border-r border-gray-200 w-16 text-center">
@@ -2092,7 +2176,8 @@ export default function OrdersPage() {
               })
             )}
           </TableBody>
-        </Table>
+            </Table>
+          </div>
         </div>
       </div>
 
@@ -2241,6 +2326,8 @@ export default function OrdersPage() {
                           items={inventoryItems}
                           selectedCode={item.productCode}
                           onSelect={(productCode: string) => updateItemWithProductInfo(index, productCode)}
+                          onSearch={searchAllInventory}
+                          isSearching={isSearching}
                           placeholder="Select product"
                         />
                       </div>

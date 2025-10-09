@@ -666,7 +666,7 @@ export default function StockPage() {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" suppressHydrationWarning></div>
           </div>
         ) : (
-          <div className="w-full overflow-x-auto">
+          <div className="overflow-auto border rounded-lg" style={{ scrollbarGutter: 'stable', maxHeight: inventory.data.length > 10 ? '90vh' : 'auto' }}>
             <div className="min-w-[1400px]">
               <Table className="w-full table-fixed">
                 <TableHeader>
@@ -780,7 +780,7 @@ export default function StockPage() {
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
+              </Table>
             </div>
           </div>
         )}
