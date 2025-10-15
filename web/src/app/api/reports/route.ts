@@ -3,10 +3,15 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function GET(request: NextRequest) {
   try {
     const token = request.headers.get('authorization');
+    const { searchParams } = new URL(request.url);
+    
+    // Forward query parameters (startDate, endDate) to backend
+    const queryString = searchParams.toString();
+    const backendUrl = `${process.env.API_BASE_URL}/api/reports${queryString ? `?${queryString}` : ''}`;
     
     console.log('Proxy: Forwarding reports request to backend');
     
-    const response = await fetch(`${process.env.API_BASE_URL}/api/reports`, {
+    const response = await fetch(backendUrl, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

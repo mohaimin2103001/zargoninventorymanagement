@@ -19,6 +19,8 @@ export default function ReportsPage() {
   const fetchReports = async () => {
     try {
       setLoading(true);
+      // For now, fetch all-time reports (no date filtering)
+      // This ensures consistency with how reports traditionally work
       const response = await reportsAPI.get();
       setReports(response.data);
     } catch (error) {

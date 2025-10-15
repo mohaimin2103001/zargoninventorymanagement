@@ -547,6 +547,7 @@ export default function StockPage() {
               <option value="L">Has L Available</option>
               <option value="XL">Has XL Available</option>
               <option value="XXL">Has XXL Available</option>
+              <option value="M_L_XL">Has M, L & XL Available</option>
             </select>
           </div>
           <div>

@@ -42,7 +42,7 @@ export const inventoryQuerySchema = z.object({
   color: z.string().transform(val => val || undefined).optional(),
   description: z.string().transform(val => val || undefined).optional(),
   size: z.string().transform(val => val && ['M', 'L', 'XL', 'XXL'].includes(val) ? val as 'M' | 'L' | 'XL' | 'XXL' : undefined).optional(),
-  sizeFilter: z.string().transform(val => val && ['M', 'L', 'XL', 'XXL'].includes(val) ? val as 'M' | 'L' | 'XL' | 'XXL' : undefined).optional(), // Add support for sizeFilter with empty string handling
+  sizeFilter: z.string().transform(val => val && ['M', 'L', 'XL', 'XXL', 'M_L_XL'].includes(val) ? val as 'M' | 'L' | 'XL' | 'XXL' | 'M_L_XL' : undefined).optional(), // Add support for sizeFilter with M_L_XL option
   qtyGte: z.string().transform(val => val ? parseInt(val) : undefined).optional(),
   inStockOnly: z.string().transform(val => val === 'true').optional(),
   zeroStockSizes: z.union([z.string(), z.array(z.string())]).optional(),

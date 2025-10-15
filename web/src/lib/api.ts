@@ -96,7 +96,7 @@ export const ordersAPI = {
 
 // Reports API
 export const reportsAPI = {
-  get: () => api.get('/reports'),
+  get: (params?: string) => api.get(`/reports${params || ''}`),
 };
 
 // Backup API

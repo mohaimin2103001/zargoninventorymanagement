@@ -73,10 +73,11 @@ router.post('/create-order', auth, async (req, res) => {
 
     // Prepare single order payload
     const itemsTotal = order.items?.reduce((sum: number, item: any) => {
-      return sum + (item.totalPrice || 0);
+      return sum + (item.unitPrice || item.unitSellingPrice || 0);
     }, 0) || 0;
     
-    const totalAmount = itemsTotal + (order.deliveryCharge || 0);
+    // Send only selling price to courier API (exclude delivery charge)
+    const totalAmount = itemsTotal;
 
     const courierOrder = {
       invoice: generateUniqueInvoice(order._id.toString()),
@@ -193,10 +194,11 @@ router.post('/bulk-order', auth, async (req, res) => {
 
         // Prepare order payload
         const itemsTotal = order.items?.reduce((sum: number, item: any) => {
-          return sum + (item.totalPrice || 0);
+          return sum + (item.unitPrice || item.unitSellingPrice || 0);
         }, 0) || 0;
         
-        const totalAmount = itemsTotal + (order.deliveryCharge || 0);
+        // Send only selling price to courier API (exclude delivery charge)
+        const totalAmount = itemsTotal;
 
         const courierOrder = {
           invoice: generateUniqueInvoice(order._id.toString()),

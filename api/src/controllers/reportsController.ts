@@ -5,6 +5,16 @@ import { InventoryItem } from '../models/InventoryItem';
 
 export const getReports = async (req: Request, res: Response) => {
   try {
+    // Add date filtering to match analytics
+    const startDate = req.query.startDate ? new Date(req.query.startDate as string) : null;
+    const endDate = req.query.endDate ? new Date(req.query.endDate as string) : null;
+    
+    // Build date filter
+    const dateFilter: any = {};
+    if (startDate && endDate) {
+      dateFilter.orderDate = { $gte: startDate, $lte: endDate };
+    }
+    
     const [
       totalProductsSoldAgg,
       totalAvailableProductsAgg,
@@ -13,7 +23,7 @@ export const getReports = async (req: Request, res: Response) => {
     ] = await Promise.all([
       // Total products sold (worth and amount) - Revenue excludes delivery charges
       Order.aggregate([
-        { $match: { status: { $nin: ['CANCELLED'] } } },
+        { $match: { ...dateFilter, status: { $nin: ['CANCELLED'] } } },
         { $unwind: '$items' },
         {
           $group: {
@@ -41,6 +51,7 @@ export const getReports = async (req: Request, res: Response) => {
       
       // Order status breakdown
       Order.aggregate([
+        { $match: dateFilter },
         { $unwind: '$items' },
         {
           $group: {
@@ -53,11 +64,12 @@ export const getReports = async (req: Request, res: Response) => {
         { $sort: { count: -1 } }
       ]),
       
-      // Recent activity (last 30 days) - Daily revenue excludes delivery charges
+      // Recent activity (last 30 days or date range) - Daily revenue excludes delivery charges
       Order.aggregate([
         {
           $match: {
-            createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
+            ...dateFilter,
+            ...(!(startDate && endDate) && { createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } }),
             status: { $nin: ['CANCELLED'] }
           }
         },
@@ -104,7 +116,7 @@ export const getReports = async (req: Request, res: Response) => {
 
     // Top selling products
     const topSellingProducts = await Order.aggregate([
-      { $match: { status: { $nin: ['CANCELLED'] } } },
+      { $match: { ...dateFilter, status: { $nin: ['CANCELLED'] } } },
       { $unwind: '$items' },
       {
         $group: {

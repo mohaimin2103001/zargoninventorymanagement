@@ -49,11 +49,22 @@ export const getInventory = async (req: Request, res: Response) => {
     // Size availability filter - show products that have stock in specific size
     if (query.size || query.sizeFilter) {
       const sizeToFilter = query.size || query.sizeFilter;
-      if (query.qtyGte) {
-        filter[`sizes.${sizeToFilter}`] = { $gte: query.qtyGte };
+      
+      // Handle special case for M_L_XL filter (products that have all three sizes available)
+      if (sizeToFilter === 'M_L_XL') {
+        filter.$and = [
+          { 'sizes.M': { $gt: 0 } },
+          { 'sizes.L': { $gt: 0 } },
+          { 'sizes.XL': { $gt: 0 } }
+        ];
       } else {
-        // Just check if the size is available (> 0)
-        filter[`sizes.${sizeToFilter}`] = { $gt: 0 };
+        // Regular single size filter
+        if (query.qtyGte) {
+          filter[`sizes.${sizeToFilter}`] = { $gte: query.qtyGte };
+        } else {
+          // Just check if the size is available (> 0)
+          filter[`sizes.${sizeToFilter}`] = { $gt: 0 };
+        }
       }
     }
     

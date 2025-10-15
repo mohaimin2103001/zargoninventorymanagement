@@ -61,6 +61,22 @@ export default function OrdersPage() {
   const [tempConsignmentId, setTempConsignmentId] = useState<string>('');
   const [showFilters, setShowFilters] = useState(false);
   
+  // Load packed orders from localStorage
+  const [packedOrders, setPackedOrders] = useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('packedOrders');
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    }
+    return new Set();
+  });
+  
+  // Save packed orders to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('packedOrders', JSON.stringify(Array.from(packedOrders)));
+    }
+  }, [packedOrders]);
+  
   // Load manual status changes from database
   const loadManualStatusChanges = async (): Promise<Set<string>> => {
     try {
@@ -300,6 +316,37 @@ export default function OrdersPage() {
     setTempConsignmentId('');
   };
 
+  // Helper function to get row background color based on status
+  const getRowBackgroundColor = (status: string): { className: string; style?: React.CSSProperties } => {
+    const upperStatus = status.toUpperCase();
+    console.log('🎨 Processing order status:', status, '| Uppercase:', upperStatus); // Debug log
+    
+    if (upperStatus === 'PAID' || upperStatus === 'DELIVERED' || upperStatus === 'PARTIAL DELIVERED') {
+      console.log('✅ Applying GREEN background for status:', status);
+      return { 
+        className: 'status-paid-row', 
+        style: { 
+          backgroundColor: '#dcfce7',
+          backgroundImage: 'none'
+        }
+      };
+    }
+    if (upperStatus === 'CAN' || upperStatus === 'CANCELLED') {
+      console.log('❌ Applying RED background for status:', status);
+      const redStyle = { 
+        backgroundColor: '#fee2e2',
+        backgroundImage: 'none'
+      };
+      console.log('🎨 Red style object:', redStyle);
+      return { 
+        className: 'status-cancelled-row', 
+        style: redStyle
+      };
+    }
+    console.log('⚪ Using default background for status:', status);
+    return { className: '' }; // default color
+  };
+
   const copyTrackingCode = async (trackingCode: string) => {
     try {
       await navigator.clipboard.writeText(trackingCode);
@@ -500,8 +547,8 @@ export default function OrdersPage() {
       
       // Calculate initial totals
       const quantity = newOrder.items[index]?.quantity || 1;
-      const totalPrice = quantity * suggestedPrice;
-      const profit = (suggestedPrice - buyPrice) * quantity;
+      const totalPrice = suggestedPrice; // Total price equals selling price regardless of quantity
+      const profit = suggestedPrice - buyPrice;
       
       updateItem(index, 'totalPrice', totalPrice);
       updateItem(index, 'profit', profit);
@@ -530,14 +577,14 @@ export default function OrdersPage() {
 
   const calculateOrderTotal = () => {
     const itemsTotal = newOrder.items.reduce((sum, item) => {
-      return sum + (item.quantity * item.unitPrice);
+      return sum + item.unitPrice;
     }, 0);
     return itemsTotal; // Exclude delivery charge from total
   };
 
   const calculateOrderProfit = () => {
     const totalProfit = newOrder.items.reduce((sum, item) => {
-      const itemProfit = (item.quantity * item.unitPrice) - (item.quantity * item.unitBuyingPrice);
+      const itemProfit = item.unitPrice - item.unitBuyingPrice;
       return sum + itemProfit;
     }, 0);
     return totalProfit; // Pure selling price - buying price profit
@@ -581,15 +628,10 @@ export default function OrdersPage() {
           return;
         }
         
-        // Auto-fill selling price with buying price if not provided
-        if (!item.unitPrice || item.unitPrice <= 0) {
-          if (item.unitBuyingPrice > 0) {
-            newOrder.items[i].unitPrice = item.unitBuyingPrice;
-            console.log(`Auto-filled selling price for item ${i + 1} with buying price: ${item.unitBuyingPrice}`);
-          } else {
-            alert(`Please enter a valid price for item ${i + 1} or ensure the product has a valid buying price`);
-            return;
-          }
+        // Allow zero selling price - just ensure it's a valid number
+        if (item.unitPrice < 0 || isNaN(item.unitPrice)) {
+          alert(`Please enter a valid price for item ${i + 1} (can be zero or positive)`);
+          return;
         }
         
         if (!item.quantity || item.quantity <= 0) {
@@ -603,8 +645,8 @@ export default function OrdersPage() {
       }
 
       // Create a single order with multiple items
-      const totalAmount = newOrder.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
-      const totalProfit = newOrder.items.reduce((sum, item) => sum + ((item.unitPrice - (item.unitBuyingPrice || 0)) * item.quantity), 0);
+      const totalAmount = newOrder.items.reduce((sum, item) => sum + item.unitPrice, 0);
+      const totalProfit = newOrder.items.reduce((sum, item) => sum + (item.unitPrice - (item.unitBuyingPrice || 0)), 0);
       
       const orderData = {
         name: customerName,
@@ -622,8 +664,8 @@ export default function OrdersPage() {
           quantity: item.quantity,
           unitSellingPrice: item.unitPrice,
           unitBuyingPrice: item.unitBuyingPrice || 0,
-          totalPrice: item.quantity * item.unitPrice,
-          profit: (item.unitPrice - (item.unitBuyingPrice || 0)) * item.quantity
+          totalPrice: item.unitPrice,
+          profit: (item.unitPrice - (item.unitBuyingPrice || 0))
         }))
       };
 
@@ -996,8 +1038,8 @@ export default function OrdersPage() {
             size: (item as any).size,
             quantity: (item as any).quantity,
             unitPrice: (item as any).unitPrice || (item as any).unitSellingPrice || 0,
-            totalPrice: ((item as any).quantity || 1) * ((item as any).unitPrice || (item as any).unitSellingPrice || 0),
-            profit: (((item as any).unitPrice || (item as any).unitSellingPrice || 0) - ((item as any).unitBuyingPrice || 0)) * ((item as any).quantity || 1),
+            totalPrice: (item as any).unitPrice || (item as any).unitSellingPrice || 0,
+            profit: ((item as any).unitPrice || (item as any).unitSellingPrice || 0) - ((item as any).unitBuyingPrice || 0),
             unitBuyingPrice: (item as any).unitBuyingPrice || 0
           }))
         : [{
@@ -1542,11 +1584,13 @@ export default function OrdersPage() {
 
       {/* Orders Table */}
       <div className="rounded-lg border-2 border-gray-200 bg-white shadow-lg overflow-hidden">
-        <div className="overflow-auto" style={{ scrollbarGutter: 'stable', maxHeight: orders.orders.length > 10 ? '90vh' : 'auto' }}>
-          <div className="min-w-[2400px]">
-            <Table className="w-full">
+        <div className="overflow-x-auto overflow-y-auto relative" style={{ scrollbarGutter: 'stable', maxHeight: orders.orders.length > 10 ? '90vh' : 'auto' }}>
+          <table className="w-full min-w-[2400px] caption-bottom text-sm bg-white text-black border-collapse">
             <TableHeader>
               <TableRow className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-300">
+                <TableHead className="text-gray-900 font-bold border-r border-gray-200 w-20 text-center bg-purple-100 sticky-column">
+                  Packed
+                </TableHead>
                 <TableHead className="text-gray-900 font-bold border-r border-gray-200 w-16 text-center">
                   <input
                     type="checkbox"
@@ -1620,17 +1664,22 @@ export default function OrdersPage() {
                       size: (order as any).size || 'N/A',
                       quantity: (order as any).qty || 0,
                       unitPrice: (order as any).price || 0,
-                      totalPrice: ((order as any).qty || 0) * ((order as any).price || 0),
-                      profit: ((order as any).price || 0) * ((order as any).qty || 0),
+                      totalPrice: (order as any).price || 0,
+                      profit: (order as any).price || 0,
                       unitBuyingPrice: 0,
                       productImage: (order as any).productImage
                     }];
                     
-                return items.map((item, itemIndex) => (
+                return items.map((item, itemIndex) => {
+                  const rowBgInfo = getRowBackgroundColor(order.status);
+                  const defaultBgColor = orderIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+                  const finalBgColor = rowBgInfo.className || defaultBgColor;
+                  
+                  return (
                   <TableRow 
                     key={`${order._id}-${itemIndex}`} 
-                    className={`hover:bg-blue-50 transition-colors duration-200 ${
-                      orderIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                    className={`transition-colors duration-200 ${
+                      finalBgColor
                     } border-b border-gray-200 ${
                       // Add visual grouping for multi-item orders
                       items.length > 1 ? (
@@ -1639,7 +1688,44 @@ export default function OrdersPage() {
                         'border-l-4 border-l-blue-300'
                       ) : ''
                     }`}
+                    style={{
+                      ...rowBgInfo.style,
+                      ...(rowBgInfo.style?.backgroundColor && {
+                        background: rowBgInfo.style.backgroundColor,
+                        backgroundImage: 'none'
+                      })
+                    }}
                   >
+                    {/* Packed Column - only show for first item of each order */}
+                    <TableCell className={`${
+                      itemIndex === 0 
+                        ? 'bg-purple-100' 
+                        : items.length > 1 
+                          ? 'bg-purple-50 border-l-2 border-l-purple-200' 
+                          : 'bg-gray-100'
+                    } border-r border-gray-200 text-center align-middle sticky-column`}>
+                      {itemIndex === 0 ? (
+                        <input
+                          type="checkbox"
+                          className="rounded h-4 w-4"
+                          checked={packedOrders.has(order._id)}
+                          onChange={(e) => {
+                            const newPackedOrders = new Set(packedOrders);
+                            if (e.target.checked) {
+                              newPackedOrders.add(order._id);
+                            } else {
+                              newPackedOrders.delete(order._id);
+                            }
+                            setPackedOrders(newPackedOrders);
+                          }}
+                        />
+                      ) : items.length > 1 ? (
+                        <div className="text-xs text-purple-600 italic">
+                          ↳ Same order
+                        </div>
+                      ) : ''}
+                    </TableCell>
+                    
                     {/* Delivery Selection - only show for first item of each order */}
                     <TableCell className={`${
                       itemIndex === 0 
@@ -1852,9 +1938,9 @@ export default function OrdersPage() {
                           ? 'bg-green-50 border-l-2 border-l-green-200' 
                           : 'bg-gray-100'
                     } text-center border-r border-gray-200 align-middle`}>
-                      {itemIndex === 0 ? `$${order.items.reduce((sum, item) => sum + (item.totalPrice || 0), 0).toFixed(2)}` : items.length > 1 ? (
+                      {itemIndex === 0 ? `$${order.items.reduce((sum, item) => sum + ((item as any).unitSellingPrice || (item as any).unitPrice || 0), 0).toFixed(2)}` : items.length > 1 ? (
                         <div className="text-xs text-green-600 font-medium">
-                          $${(item.totalPrice || 0).toFixed(2)}
+                          ${((item as any).unitSellingPrice || (item as any).unitPrice || 0).toFixed(2)}
                         </div>
                       ) : ''}
                     </TableCell>
@@ -2172,12 +2258,12 @@ export default function OrdersPage() {
                       ) : ''}
                     </TableCell>
                   </TableRow>
-                ));
+                  );
+                });
               })
             )}
           </TableBody>
-            </Table>
-          </div>
+          </table>
         </div>
       </div>
 
@@ -2397,8 +2483,25 @@ export default function OrdersPage() {
                             return selectedProduct?.sizes[item.size] || 999;
                           })()}
                           required
-                          value={item.quantity}
-                          onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 1)}
+                          value={item.quantity || ''}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === '' || value === '0') {
+                              // Allow empty field and handle it gracefully
+                              updateItem(index, 'quantity', 0);
+                            } else {
+                              const parsedValue = parseInt(value);
+                              if (!isNaN(parsedValue) && parsedValue > 0) {
+                                updateItem(index, 'quantity', parsedValue);
+                              }
+                            }
+                          }}
+                          onBlur={(e) => {
+                            // Ensure quantity is at least 1 when user leaves the field
+                            if (!e.target.value || parseInt(e.target.value) < 1) {
+                              updateItem(index, 'quantity', 1);
+                            }
+                          }}
                           placeholder="Qty"
                         />
                         {(() => {
@@ -2417,14 +2520,23 @@ export default function OrdersPage() {
                         })()}
                       </div>
                       <div>
-                        <label className="block text-sm font-medium mb-1">Selling Price *</label>
+                        <label className="block text-sm font-medium mb-1">Selling Price (0 allowed)</label>
                         <Input
                           type="number"
-                          min="0"
                           step="0.01"
                           value={item.unitPrice}
-                          onChange={(e) => updateItem(index, 'unitPrice', parseFloat(e.target.value) || 0)}
-                          placeholder="Price"
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === '') {
+                              updateItem(index, 'unitPrice', 0);
+                            } else {
+                              const parsedValue = parseFloat(value);
+                              if (!isNaN(parsedValue)) {
+                                updateItem(index, 'unitPrice', parsedValue);
+                              }
+                            }
+                          }}
+                          placeholder="Price (can be 0)"
                         />
                       </div>
                       <div>
@@ -2440,8 +2552,8 @@ export default function OrdersPage() {
                     </div>
 
                     <div className="text-sm text-gray-600">
-                      Item Total: ${(item.quantity * item.unitPrice).toFixed(2)} | 
-                      Item Profit: ${((item.quantity * item.unitPrice) - (item.quantity * item.unitBuyingPrice)).toFixed(2)}
+                      Item Total: ${item.unitPrice.toFixed(2)} (Qty: {item.quantity}) | 
+                      Item Profit: ${(item.unitPrice - item.unitBuyingPrice).toFixed(2)}
                     </div>
                   </div>
                 ))}
@@ -2613,15 +2725,26 @@ export default function OrdersPage() {
                   <div key={index} className="border rounded-lg p-4 mb-3">
                     <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                       <div className="lg:col-span-2">
-                        <label className="block text-sm font-medium mb-1">Product Code</label>
-                        <Input
-                          required
-                          value={item.productCode}
-                          onChange={(e) => {
+                        <label className="block text-sm font-medium mb-1">Product *</label>
+                        <ProductSelector
+                          items={inventoryItems}
+                          selectedCode={item.productCode}
+                          onSelect={(productCode: string) => {
                             const updatedItems = [...(editingOrder.items || [])];
-                            updatedItems[index] = { ...item, productCode: e.target.value };
-                            setEditingOrder(prev => prev ? ({ ...prev, items: updatedItems }) : null);
+                            const selectedProduct = inventoryItems.find(inv => inv.finalCode === productCode);
+                            if (selectedProduct) {
+                              updatedItems[index] = { 
+                                ...item, 
+                                productCode: productCode,
+                                unitBuyingPrice: selectedProduct.buyPrice,
+                                productImage: selectedProduct.images?.[0] || ''
+                              };
+                              setEditingOrder(prev => prev ? ({ ...prev, items: updatedItems }) : null);
+                            }
                           }}
+                          onSearch={searchAllInventory}
+                          isSearching={isSearching}
+                          placeholder="Select product"
                         />
                       </div>
                       <div>

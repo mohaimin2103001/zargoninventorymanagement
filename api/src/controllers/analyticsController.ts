@@ -10,14 +10,14 @@ interface AuthRequest extends Request {
 // ABC Analysis for inventory management
 export const getABCAnalysis = async (req: AuthRequest, res: Response) => {
   try {
-    const startDate = req.query.startDate ? new Date(req.query.startDate as string) : new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+    const startDate = req.query.startDate ? new Date(req.query.startDate as string) : new Date('1970-01-01');
     const endDate = req.query.endDate ? new Date(req.query.endDate as string) : new Date();
     
     // Get product sales data for ABC classification
     const productAnalysis = await Order.aggregate([
       {
         $match: {
-          status: { $in: ['PAID', 'Partial Delivered', 'PENDING'] },
+          status: { $nin: ['CANCELLED'] },
           orderDate: { $gte: startDate, $lte: endDate }
         }
       },
@@ -28,7 +28,7 @@ export const getABCAnalysis = async (req: AuthRequest, res: Response) => {
         $group: {
           _id: '$items.productCode',
           totalQty: { $sum: '$items.quantity' },
-          totalRevenue: { $sum: '$items.totalPrice' },
+          totalRevenue: { $sum: { $multiply: ['$items.quantity', '$items.unitSellingPrice'] } },
           orderCount: { $sum: 1 },
           avgUnitPrice: { $avg: '$items.unitSellingPrice' }
         }
@@ -87,7 +87,7 @@ export const getABCAnalysis = async (req: AuthRequest, res: Response) => {
 // Demand Forecasting with trend analysis
 export const getDemandForecast = async (req: AuthRequest, res: Response) => {
   try {
-    const startDate = req.query.startDate ? new Date(req.query.startDate as string) : new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+    const startDate = req.query.startDate ? new Date(req.query.startDate as string) : new Date('1970-01-01');
     const endDate = req.query.endDate ? new Date(req.query.endDate as string) : new Date();
     const forecastDays = parseInt(req.query.days as string) || 30;
     
@@ -95,7 +95,7 @@ export const getDemandForecast = async (req: AuthRequest, res: Response) => {
     const historicalData = await Order.aggregate([
       {
         $match: {
-          status: { $in: ['PAID', 'Partial Delivered', 'PENDING'] },
+          status: { $nin: ['CANCELLED'] },
           orderDate: { $gte: startDate, $lte: endDate }
         }
       },
@@ -109,7 +109,7 @@ export const getDemandForecast = async (req: AuthRequest, res: Response) => {
             product: '$items.productCode'
           },
           dailySales: { $sum: '$items.quantity' },
-          dailyRevenue: { $sum: '$items.totalPrice' }
+          dailyRevenue: { $sum: { $multiply: ['$items.quantity', '$items.unitSellingPrice'] } }
         }
       },
       { $sort: { '_id.date': 1 } }
@@ -192,14 +192,14 @@ export const getDemandForecast = async (req: AuthRequest, res: Response) => {
 // Customer Behavior Analytics
 export const getCustomerAnalytics = async (req: AuthRequest, res: Response) => {
   try {
-    const startDate = req.query.startDate ? new Date(req.query.startDate as string) : new Date(Date.now() - 180 * 24 * 60 * 60 * 1000);
+    const startDate = req.query.startDate ? new Date(req.query.startDate as string) : new Date('1970-01-01');
     const endDate = req.query.endDate ? new Date(req.query.endDate as string) : new Date();
     
     // Customer segmentation analysis
     const customerAnalysis = await Order.aggregate([
       {
         $match: {
-          status: { $in: ['PAID', 'Partial Delivered', 'PENDING'] },
+          status: { $nin: ['CANCELLED'] },
           orderDate: { $gte: startDate, $lte: endDate }
         }
       },
@@ -210,11 +210,11 @@ export const getCustomerAnalytics = async (req: AuthRequest, res: Response) => {
         $group: {
           _id: { name: '$name', phone: '$phone', address: '$address' },
           totalOrders: { $sum: 1 },
-          totalSpent: { $sum: { $add: ['$items.totalPrice', '$deliveryCharge'] } },
+          totalSpent: { $sum: { $add: [{ $multiply: ['$items.quantity', '$items.unitSellingPrice'] }, '$deliveryCharge'] } },
           totalItems: { $sum: '$items.quantity' },
           firstOrder: { $min: '$orderDate' },
           lastOrder: { $max: '$orderDate' },
-          avgOrderValue: { $avg: { $add: ['$items.totalPrice', '$deliveryCharge'] } },
+          avgOrderValue: { $avg: { $add: [{ $multiply: ['$items.quantity', '$items.unitSellingPrice'] }, '$deliveryCharge'] } },
           favoriteProducts: { $push: '$items.productCode' }
         }
       },
@@ -316,14 +316,14 @@ export const getCustomerAnalytics = async (req: AuthRequest, res: Response) => {
 // Financial Analytics with comprehensive Harvard-level metrics
 export const getFinancialAnalytics = async (req: AuthRequest, res: Response) => {
   try {
-    const startDate = req.query.startDate ? new Date(req.query.startDate as string) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const startDate = req.query.startDate ? new Date(req.query.startDate as string) : new Date('1970-01-01');
     const endDate = req.query.endDate ? new Date(req.query.endDate as string) : new Date();
     
     // Revenue and cost analysis with delivery charges
     const financialData = await Order.aggregate([
       {
         $match: {
-          status: { $in: ['PAID', 'Partial Delivered', 'PENDING'] },
+          status: { $nin: ['CANCELLED'] },
           orderDate: { $gte: startDate, $lte: endDate }
         }
       },
@@ -333,7 +333,7 @@ export const getFinancialAnalytics = async (req: AuthRequest, res: Response) => 
       {
         $group: {
           _id: '$items.productCode',
-          totalRevenue: { $sum: '$items.totalPrice' },
+          totalRevenue: { $sum: { $multiply: ['$items.quantity', '$items.unitSellingPrice'] } },
           totalDeliveryCharges: { $sum: '$deliveryCharge' },
           totalQuantitySold: { $sum: '$items.quantity' },
           orderCount: { $sum: 1 },
@@ -416,20 +416,24 @@ export const getFinancialAnalytics = async (req: AuthRequest, res: Response) => 
     const previousData = await Order.aggregate([
       {
         $match: {
-          status: { $in: ['PAID', 'Partial Delivered'] },
-          processedDate: { $gte: previousPeriodStart, $lt: startDate }
+          status: { $nin: ['CANCELLED'] },
+          orderDate: { $gte: previousPeriodStart, $lt: startDate }
         }
+      },
+      {
+        $unwind: '$items'
       },
       {
         $group: {
           _id: null,
-          totalRevenue: { $sum: { $multiply: ['$qty', '$unitPrice'] } }
+          totalRevenue: { $sum: { $multiply: ['$items.quantity', '$items.unitSellingPrice'] } }
         }
       }
     ]);
 
     const previousRevenue = previousData[0]?.totalRevenue || 0;
-    const currentMonthGrowth = previousRevenue > 0 ? ((totalRevenue - previousRevenue) / previousRevenue) * 100 : 0;
+    const currentRevenue = enhancedProducts.reduce((sum, p) => sum + p.totalRevenue, 0);
+    const currentMonthGrowth = previousRevenue > 0 ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 : 0;
 
     // Find top performers
     const sortedByProfit = enhancedProducts.sort((a, b) => b.totalProfit - a.totalProfit);
@@ -497,14 +501,17 @@ export const getDashboardAnalytics = async (req: AuthRequest, res: Response) => 
       Order.aggregate([
         {
           $match: {
-            status: { $in: ['PAID', 'Partial Delivered'] },
-            processedDate: { $gte: new Date(Date.now() - days * 24 * 60 * 60 * 1000) }
+            status: { $nin: ['CANCELLED'] },
+            orderDate: { $gte: new Date(Date.now() - days * 24 * 60 * 60 * 1000) }
           }
         },
         {
+          $unwind: '$items'
+        },
+        {
           $group: {
-            _id: { $dateToString: { format: '%Y-%m-%d', date: '$processedDate' } },
-            dailyRevenue: { $sum: { $multiply: ['$qty', '$unitPrice'] } },
+            _id: { $dateToString: { format: '%Y-%m-%d', date: '$orderDate' } },
+            dailyRevenue: { $sum: { $multiply: ['$items.quantity', '$items.unitSellingPrice'] } },
             dailyOrders: { $sum: 1 }
           }
         },
@@ -519,10 +526,13 @@ export const getDashboardAnalytics = async (req: AuthRequest, res: Response) => 
           }
         },
         {
+          $unwind: '$items'
+        },
+        {
           $group: {
             _id: '$status',
             count: { $sum: 1 },
-            totalValue: { $sum: { $multiply: ['$qty', '$unitPrice'] } }
+            totalValue: { $sum: { $multiply: ['$items.quantity', '$items.unitSellingPrice'] } }
           }
         }
       ]),
