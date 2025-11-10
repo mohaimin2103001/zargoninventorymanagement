@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
+import AboutDeveloper from '@/components/ui/about-developer';
 
 interface Notice {
   _id: string;
@@ -373,6 +374,9 @@ export default function NoticesPage() {
           ))
         )}
       </div>
+
+      {/* About Developer Section */}
+      <AboutDeveloper />
     </div>
   );
 }

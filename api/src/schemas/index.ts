@@ -105,6 +105,7 @@ export const orderQuerySchema = z.object({
   qAddress: z.string().optional(),
   phone: z.string().optional(),
   code: z.string().optional(),
+  consignmentId: z.string().optional(),
   reason: z.string().optional(),
   size: z.enum(['M', 'L', 'XL', 'XXL']).optional(),
   status: z.string().optional(), // Can be comma-separated for multi-select

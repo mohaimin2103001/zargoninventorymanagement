@@ -14,6 +14,7 @@ import { HydrationSafe } from '@/components/ui/hydration-safe';
 import ExportControls from '@/components/ui/export-controls';
 import { Plus, Search, Download, Filter, Edit, Trash2, X, Copy, Minus } from 'lucide-react';
 import { format } from 'date-fns';
+import AboutDeveloper from '@/components/ui/about-developer';
 
 interface OrderItem {
   productCode: string;
@@ -46,6 +47,7 @@ export default function OrdersPage() {
     }
   });
   const [loading, setLoading] = useState(true);
+  const [creatingOrder, setCreatingOrder] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
@@ -60,6 +62,9 @@ export default function OrdersPage() {
   const [editingConsignmentId, setEditingConsignmentId] = useState<string | null>(null);
   const [tempConsignmentId, setTempConsignmentId] = useState<string>('');
   const [showFilters, setShowFilters] = useState(false);
+  const [apiStatusTimeRange, setApiStatusTimeRange] = useState<'lastWeek' | 'lastMonth' | 'custom'>('lastMonth');
+  const [apiStatusCustomDates, setApiStatusCustomDates] = useState({ from: '', to: '' });
+  const [apiRefreshProgress, setApiRefreshProgress] = useState({ current: 0, total: 0, isProcessing: false });
   
   // Load packed orders from localStorage
   const [packedOrders, setPackedOrders] = useState<Set<string>>(() => {
@@ -137,6 +142,7 @@ export default function OrdersPage() {
     qAddress: '',
     phone: '',
     code: '',
+    consignmentId: '',
     status: '',
     reason: '',
     dateFrom: '',
@@ -200,13 +206,30 @@ export default function OrdersPage() {
   const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await ordersAPI.getAll(filters);
+      
+      // Clean up filters by removing empty strings and null/undefined values
+      const cleanFilters: Record<string, any> = {};
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== '' && value !== null && value !== undefined) {
+          cleanFilters[key] = value;
+        }
+      });
+      
+      console.log('Fetching orders with filters:', cleanFilters);
+      const response = await ordersAPI.getAll(cleanFilters);
+      console.log('Orders fetched successfully:', response.data);
       setOrders(response.data);
       
       // Always start with empty selections on page load/refresh
       setSelectedForDelivery(new Set<string>());
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to fetch orders:', error);
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      alert('Failed to fetch orders. Please check console for details.');
     } finally {
       setLoading(false);
     }
@@ -319,32 +342,39 @@ export default function OrdersPage() {
   // Helper function to get row background color based on status
   const getRowBackgroundColor = (status: string): { className: string; style?: React.CSSProperties } => {
     const upperStatus = status.toUpperCase();
-    console.log('🎨 Processing order status:', status, '| Uppercase:', upperStatus); // Debug log
     
     if (upperStatus === 'PAID' || upperStatus === 'DELIVERED' || upperStatus === 'PARTIAL DELIVERED') {
-      console.log('✅ Applying GREEN background for status:', status);
       return { 
-        className: 'status-paid-row', 
+        className: 'status-paid-row hover:!bg-green-300', 
         style: { 
-          backgroundColor: '#dcfce7',
+          backgroundColor: '#bbf7d0', // Full bright green
           backgroundImage: 'none'
         }
       };
     }
     if (upperStatus === 'CAN' || upperStatus === 'CANCELLED') {
-      console.log('❌ Applying RED background for status:', status);
-      const redStyle = { 
-        backgroundColor: '#fee2e2',
-        backgroundImage: 'none'
-      };
-      console.log('🎨 Red style object:', redStyle);
       return { 
-        className: 'status-cancelled-row', 
-        style: redStyle
+        className: 'status-cancelled-row hover:!bg-red-300', 
+        style: { 
+          backgroundColor: '#fecaca', // Full bright red
+          backgroundImage: 'none'
+        }
       };
     }
-    console.log('⚪ Using default background for status:', status);
-    return { className: '' }; // default color
+    return { className: 'hover:bg-blue-50' }; // default color with hover
+  };
+
+  // Helper function to get cell background based on row status
+  const getCellBackground = (status: string, defaultBg: string): string => {
+    const upperStatus = status.toUpperCase();
+    
+    // If paid/delivered or cancelled, make cells transparent to show row color
+    if (upperStatus === 'PAID' || upperStatus === 'DELIVERED' || upperStatus === 'PARTIAL DELIVERED' || 
+        upperStatus === 'CAN' || upperStatus === 'CANCELLED') {
+      return 'bg-transparent'; // Let row color show through
+    }
+    
+    return defaultBg; // Use original background for other statuses
   };
 
   const copyTrackingCode = async (trackingCode: string) => {
@@ -597,6 +627,11 @@ export default function OrdersPage() {
   const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Prevent multiple submissions
+    if (creatingOrder) {
+      return;
+    }
+    
     console.log('=== CREATING ORDER(S) ===');
     console.log('Customer:', { name: newOrder.name, address: newOrder.address, phone: newOrder.phone });
     console.log('Items to create orders for:', newOrder.items);
@@ -617,6 +652,7 @@ export default function OrdersPage() {
       return;
     }
 
+    setCreatingOrder(true);
     try {
       // Validate all items first and auto-fill missing prices
       for (let i = 0; i < newOrder.items.length; i++) {
@@ -684,32 +720,12 @@ export default function OrdersPage() {
       
       alert(`Successfully created order for ${customerName} with ${newOrder.items.length} item(s)!\nOrder ID: ${response.data._id || response.data.id}`);
       
-      console.log('Refreshing orders list...');
-      // Reset form
-      setNewOrder({
-        name: '',
-        address: '',
-        phone: '',
-        deliveryCharge: 60,
-        status: 'PENDING' as OrderStatus,
-        reasonNote: '',
-        pickupDate: '',
-        items: [
-          {
-            productCode: '',
-            finalCode: '',
-            size: 'M' as 'M' | 'L' | 'XL' | 'XXL',
-            quantity: 1,
-            unitPrice: 0,
-            totalPrice: 0,
-            profit: 0,
-            unitBuyingPrice: 0
-          }
-        ]
-      });
-      
+      console.log('Refreshing page...');
+      // Close the form
       setShowCreateForm(false);
-      fetchOrders();
+      
+      // Refresh the entire page to get fresh data
+      window.location.reload();
     } catch (error: any) {
       console.error('=== ORDER CREATION ERROR ===');
       console.error('Error object:', error);
@@ -738,6 +754,8 @@ export default function OrdersPage() {
       }
       
       alert(errorMessage);
+    } finally {
+      setCreatingOrder(false);
     }
   };
 
@@ -1361,102 +1379,267 @@ export default function OrdersPage() {
     await Promise.allSettled(promises);
   };
 
+  const fetchApiStatusesByTimeRange = async () => {
+    try {
+      // Calculate date range
+      let dateFrom = '';
+      let dateTo = '';
+      
+      if (apiStatusTimeRange === 'lastWeek') {
+        const oneWeekAgo = new Date();
+        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+        dateFrom = oneWeekAgo.toISOString().split('T')[0];
+        dateTo = new Date().toISOString().split('T')[0];
+      } else if (apiStatusTimeRange === 'lastMonth') {
+        const oneMonthAgo = new Date();
+        oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+        dateFrom = oneMonthAgo.toISOString().split('T')[0];
+        dateTo = new Date().toISOString().split('T')[0];
+      } else if (apiStatusTimeRange === 'custom') {
+        if (!apiStatusCustomDates.from || !apiStatusCustomDates.to) {
+          alert('Please select both start and end dates for custom range.');
+          return;
+        }
+        dateFrom = apiStatusCustomDates.from;
+        dateTo = apiStatusCustomDates.to;
+      }
+      
+      // Fetch ALL orders in the date range (no pagination limit)
+      const response = await ordersAPI.getAll({
+        dateFrom,
+        dateTo,
+        pageSize: 10000, // Large number to get all orders
+        page: 1
+      });
+      
+      const allOrdersInRange = response.data.orders;
+      
+      if (allOrdersInRange.length === 0) {
+        alert('No orders found in the selected time range.');
+        return;
+      }
+      
+      // Confirm with user before processing
+      const confirmMessage = `Found ${allOrdersInRange.length} order(s) in the selected time range.\n\nThis will refresh API status for all these orders. Continue?`;
+      if (!confirm(confirmMessage)) {
+        return;
+      }
+      
+      // Initialize progress tracking
+      setApiRefreshProgress({ current: 0, total: allOrdersInRange.length, isProcessing: true });
+      
+      // Process orders one by one to track progress
+      let completed = 0;
+      for (const order of allOrdersInRange) {
+        await fetchApiStatus(order);
+        completed++;
+        setApiRefreshProgress({ current: completed, total: allOrdersInRange.length, isProcessing: true });
+      }
+      
+      // Reset progress
+      setApiRefreshProgress({ current: 0, total: 0, isProcessing: false });
+      
+      alert(`✅ API status refreshed for ${allOrdersInRange.length} order(s) in the selected time range.`);
+      
+      // Refresh current page to show updated statuses
+      await fetchOrders();
+    } catch (error) {
+      console.error('Failed to fetch orders by time range:', error);
+      setApiRefreshProgress({ current: 0, total: 0, isProcessing: false });
+      alert('Failed to fetch orders. Please try again.');
+    }
+  };
+
   // Remove automatic API status fetching on load - only run when explicitly requested
 
   return (
-    <HydrationSafe className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-4">Orders Management</h1>
+    <HydrationSafe className="mobile-padding">
+      <div className="mb-4 sm:mb-6">
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mb-3 sm:mb-4">Orders Management</h1>
+        
+        {/* Time Range for API Status Refresh */}
+        <div className="mb-3 bg-white p-3 sm:p-4 rounded-lg shadow">
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <label className="text-sm font-medium text-gray-700 whitespace-nowrap">API Status Refresh Time Range:</label>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant={apiStatusTimeRange === 'lastWeek' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setApiStatusTimeRange('lastWeek')}
+                  className="tap-target-sm text-xs sm:text-sm"
+                >
+                  📅 Last Week
+                </Button>
+                <Button
+                  variant={apiStatusTimeRange === 'lastMonth' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setApiStatusTimeRange('lastMonth')}
+                  className="tap-target-sm text-xs sm:text-sm"
+                >
+                  📅 Last Month
+                </Button>
+                <Button
+                  variant={apiStatusTimeRange === 'custom' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setApiStatusTimeRange('custom')}
+                  className="tap-target-sm text-xs sm:text-sm"
+                >
+                  📅 Custom Range
+                </Button>
+              </div>
+              {apiStatusTimeRange === 'custom' && (
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                  <Input
+                    type="date"
+                    value={apiStatusCustomDates.from}
+                    onChange={(e) => setApiStatusCustomDates(prev => ({ ...prev, from: e.target.value }))}
+                    className="mobile-input text-xs sm:text-sm"
+                    placeholder="From"
+                  />
+                  <Input
+                    type="date"
+                    value={apiStatusCustomDates.to}
+                    onChange={(e) => setApiStatusCustomDates(prev => ({ ...prev, to: e.target.value }))}
+                    className="mobile-input text-xs sm:text-sm"
+                    placeholder="To"
+                  />
+                </div>
+              )}
+            </div>
+            
+            {/* Refresh Button for Time Range */}
+            <div className="flex flex-col gap-2">
+              <Button 
+                onClick={fetchApiStatusesByTimeRange}
+                disabled={apiRefreshProgress.isProcessing}
+                className="flex items-center justify-center gap-1 sm:gap-2 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 disabled:bg-gray-400 text-white text-xs sm:text-sm tap-target-sm"
+                size="sm"
+              >
+                {apiRefreshProgress.isProcessing ? (
+                  <>
+                    <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white"></div>
+                    <span>Processing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Search className="h-3 w-3 sm:h-4 sm:w-4" />
+                    <span>Refresh API Status (Time Range)</span>
+                  </>
+                )}
+              </Button>
+              
+              {/* Progress Bar */}
+              {apiRefreshProgress.isProcessing && (
+                <div className="w-full bg-gray-200 rounded-full h-6 overflow-hidden relative">
+                  <div 
+                    className="bg-gradient-to-r from-purple-500 to-purple-600 h-full transition-all duration-300 ease-out flex items-center justify-center"
+                    style={{ width: `${(apiRefreshProgress.current / apiRefreshProgress.total) * 100}%` }}
+                  >
+                    <span className="text-xs font-bold text-white relative z-10">
+                      {apiRefreshProgress.current} / {apiRefreshProgress.total}
+                    </span>
+                  </div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-xs font-bold text-gray-700">
+                      {Math.round((apiRefreshProgress.current / apiRefreshProgress.total) * 100)}%
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
         
         {/* Action Buttons - Responsive Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2">
           <Button 
             onClick={() => handleExportDeliveryVoucher('csv')}
             disabled={selectedForDelivery.size === 0}
-            className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-xs sm:text-sm"
+            className="flex items-center justify-center gap-1 sm:gap-2 bg-green-600 hover:bg-green-700 text-xs sm:text-sm tap-target-sm"
             size="sm"
           >
-            <Download className="h-4 w-4" />
+            <Download className="h-3 w-3 sm:h-4 sm:w-4" />
             <span className="hidden sm:inline">Export CSV</span>
             <span className="sm:hidden">CSV</span> ({selectedForDelivery.size})
           </Button>
           <Button 
             onClick={() => handleExportDeliveryVoucher('excel')}
             disabled={selectedForDelivery.size === 0}
-            className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-xs sm:text-sm"
+            className="flex items-center justify-center gap-1 sm:gap-2 bg-blue-600 hover:bg-blue-700 text-xs sm:text-sm tap-target-sm"
             size="sm"
           >
-            <Download className="h-4 w-4" />
+            <Download className="h-3 w-3 sm:h-4 sm:w-4" />
             <span className="hidden sm:inline">Export Excel</span>
             <span className="sm:hidden">Excel</span> ({selectedForDelivery.size})
           </Button>
           <Button 
             onClick={() => window.open('/api/export/orders/excel' + new URLSearchParams(filters).toString() ? '?' + new URLSearchParams(filters).toString() : '', '_blank')}
             variant="outline"
-            className="flex items-center justify-center gap-2 text-xs sm:text-sm"
+            className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm tap-target-sm"
             size="sm"
           >
-            <Download className="h-4 w-4" />
-            <span className="hidden sm:inline">Export Excel</span>
-            <span className="sm:hidden">Excel</span>
+            <Download className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden lg:inline">Export Excel</span>
+            <span className="lg:hidden">Excel</span>
           </Button>
           <Button 
             onClick={() => window.open('/api/export/orders/pdf' + new URLSearchParams(filters).toString() ? '?' + new URLSearchParams(filters).toString() : '', '_blank')}
             variant="outline"
-            className="flex items-center justify-center gap-2 text-xs sm:text-sm"
+            className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm tap-target-sm"
             size="sm"
           >
-            <Download className="h-4 w-4" />
-            <span className="hidden sm:inline">Export PDF</span>
-            <span className="sm:hidden">PDF</span>
+            <Download className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden lg:inline">Export PDF</span>
+            <span className="lg:hidden">PDF</span>
           </Button>
           <Button 
             onClick={() => setShowCreateForm(true)}
-            className="flex items-center justify-center gap-2 text-xs sm:text-sm col-span-1 sm:col-span-2 lg:col-span-1"
+            className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm col-span-2 sm:col-span-1 tap-target-sm"
             size="sm"
           >
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">Create Multi-Item Order</span>
-            <span className="sm:hidden">Create Order</span>
+            <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden md:inline">Create Multi-Item Order</span>
+            <span className="md:hidden">Create Order</span>
           </Button>
           <Button 
             onClick={handleSendToCourier}
             disabled={selectedForCourier.size === 0 || courierOrderInProgress}
-            className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-xs sm:text-sm col-span-1 sm:col-span-2 lg:col-span-1"
+            className="flex items-center justify-center gap-1 sm:gap-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-xs sm:text-sm tap-target-sm"
             size="sm"
           >
             {courierOrderInProgress ? (
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white"></div>
             ) : (
-              <Download className="h-4 w-4" />
+              <Download className="h-3 w-3 sm:h-4 sm:w-4" />
             )}
             {courierOrderInProgress ? (
-              <span>Sending...</span>
+              <span className="text-xs">Sending...</span>
             ) : (
               <>
-                <span className="hidden sm:inline">Send to Courier</span>
-                <span className="sm:hidden">Courier</span> ({selectedForCourier.size})
+                <span className="hidden md:inline">Send to Courier</span>
+                <span className="md:hidden">Courier</span> ({selectedForCourier.size})
               </>
             )}
           </Button>
           <Button 
             onClick={fetchAllApiStatuses}
-            className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-xs sm:text-sm"
+            className="flex items-center justify-center gap-1 sm:gap-2 bg-indigo-600 hover:bg-indigo-700 text-xs sm:text-sm col-span-2 sm:col-span-1 tap-target-sm"
             size="sm"
           >
-            <Search className="h-4 w-4" />
-            <span className="hidden sm:inline">Refresh API Status</span>
-            <span className="sm:hidden">API Status</span>
+            <Search className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden md:inline">Refresh API Status</span>
+            <span className="md:hidden">API Status</span>
           </Button>
         </div>
       </div>
 
       {/* Filter Toggle Button */}
-      <div className="mb-4">
+      <div className="mb-3 sm:mb-4">
         <Button
           variant="outline"
           onClick={() => setShowFilters(!showFilters)}
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 tap-target-sm text-sm sm:text-base"
         >
           <Filter className="h-4 w-4" />
           {showFilters ? 'Hide Filters' : 'Show Filters'}
@@ -1497,6 +1680,14 @@ export default function OrdersPage() {
                 placeholder="Product code..."
                 value={filters.code}
                 onChange={(e) => handleFilterChange('code', e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Consignment ID</label>
+              <Input
+                placeholder="Consignment ID..."
+                value={filters.consignmentId}
+                onChange={(e) => handleFilterChange('consignmentId', e.target.value)}
               />
             </div>
             <div>
@@ -1554,6 +1745,7 @@ export default function OrdersPage() {
                 handleFilterChange('qAddress', '');
                 handleFilterChange('phone', '');
                 handleFilterChange('code', '');
+                handleFilterChange('consignmentId', '');
                 handleFilterChange('reason', '');
                 handleFilterChange('status', '');
                 handleFilterChange('dateFrom', '');
@@ -1567,7 +1759,7 @@ export default function OrdersPage() {
       )}
 
       {/* Export Controls */}
-      <div className="mb-6">
+      <div className="mb-4 sm:mb-6">
         <ExportControls 
           type="orders" 
           currentFilters={{
@@ -1584,7 +1776,7 @@ export default function OrdersPage() {
 
       {/* Orders Table */}
       <div className="rounded-lg border-2 border-gray-200 bg-white shadow-lg overflow-hidden">
-        <div className="overflow-x-auto overflow-y-auto relative" style={{ scrollbarGutter: 'stable', maxHeight: orders.orders.length > 10 ? '90vh' : 'auto' }}>
+        <div className="mobile-table-scroll overflow-x-auto overflow-y-auto relative" style={{ scrollbarGutter: 'stable', maxHeight: orders.orders.length > 10 ? '90vh' : 'auto' }}>
           <table className="w-full min-w-[2400px] caption-bottom text-sm bg-white text-black border-collapse">
             <TableHeader>
               <TableRow className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-300">
@@ -1623,6 +1815,7 @@ export default function OrdersPage() {
                   })()}
                 </TableHead>
                 <TableHead className="text-gray-900 font-bold border-r border-gray-200 w-20 text-center">Date</TableHead>
+                <TableHead className="text-gray-900 font-bold border-r border-gray-200 w-20 text-center">Time</TableHead>
                 <TableHead className="text-gray-900 font-bold border-r border-gray-200 w-24 text-center">Order ID</TableHead>
                 <TableHead className="text-gray-900 font-bold border-r border-gray-200 w-32">Name</TableHead>
                 <TableHead className="text-gray-900 font-bold border-r border-gray-200 w-48">Address</TableHead>
@@ -1643,13 +1836,13 @@ export default function OrdersPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={17} className="text-center py-8">
+                <TableCell colSpan={18} className="text-center py-8">
                   Loading orders...
                 </TableCell>
               </TableRow>
             ) : orders.orders.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={17} className="text-center py-8">
+                <TableCell colSpan={18} className="text-center py-8">
                   No orders found
                 </TableCell>
               </TableRow>
@@ -1678,7 +1871,7 @@ export default function OrdersPage() {
                   return (
                   <TableRow 
                     key={`${order._id}-${itemIndex}`} 
-                    className={`transition-colors duration-200 ${
+                    className={`transition-all duration-200 ease-in-out cursor-pointer hover:shadow-lg hover:relative ${
                       finalBgColor
                     } border-b border-gray-200 ${
                       // Add visual grouping for multi-item orders
@@ -1699,10 +1892,10 @@ export default function OrdersPage() {
                     {/* Packed Column - only show for first item of each order */}
                     <TableCell className={`${
                       itemIndex === 0 
-                        ? 'bg-purple-100' 
+                        ? getCellBackground(order.status, 'bg-purple-100')
                         : items.length > 1 
-                          ? 'bg-purple-50 border-l-2 border-l-purple-200' 
-                          : 'bg-gray-100'
+                          ? getCellBackground(order.status, 'bg-purple-50 border-l-2 border-l-purple-200')
+                          : getCellBackground(order.status, 'bg-gray-100')
                     } border-r border-gray-200 text-center align-middle sticky-column`}>
                       {itemIndex === 0 ? (
                         <input
@@ -1729,10 +1922,10 @@ export default function OrdersPage() {
                     {/* Delivery Selection - only show for first item of each order */}
                     <TableCell className={`${
                       itemIndex === 0 
-                        ? 'bg-slate-200' 
+                        ? getCellBackground(order.status, 'bg-slate-200')
                         : items.length > 1 
-                          ? 'bg-blue-50 border-l-2 border-l-blue-200' 
-                          : 'bg-gray-100'
+                          ? getCellBackground(order.status, 'bg-blue-50 border-l-2 border-l-blue-200')
+                          : getCellBackground(order.status, 'bg-gray-100')
                     } border-r border-gray-200 text-center align-middle`}>
                       {itemIndex === 0 ? (
                         <input
@@ -1749,13 +1942,13 @@ export default function OrdersPage() {
                     <TableCell className={`${
                       itemIndex === 0 
                         ? order.courierStatus === 'sent' 
-                          ? 'bg-green-200' 
-                          : 'bg-purple-200'
+                          ? getCellBackground(order.status, 'bg-green-200')
+                          : getCellBackground(order.status, 'bg-purple-200')
                         : items.length > 1 
                           ? order.courierStatus === 'sent'
-                            ? 'bg-green-50 border-l-2 border-l-green-200'
-                            : 'bg-purple-50 border-l-2 border-l-purple-200' 
-                          : 'bg-gray-100'
+                            ? getCellBackground(order.status, 'bg-green-50 border-l-2 border-l-green-200')
+                            : getCellBackground(order.status, 'bg-purple-50 border-l-2 border-l-purple-200')
+                          : getCellBackground(order.status, 'bg-gray-100')
                     } border-r border-gray-200 text-center align-middle`}>
                       {itemIndex === 0 ? (
                         order.courierStatus === 'sent' ? (
@@ -1778,10 +1971,10 @@ export default function OrdersPage() {
                     {/* Date - only show for first item of each order */}
                     <TableCell className={`${
                       itemIndex === 0 
-                        ? 'bg-slate-200 text-slate-900 font-bold' 
+                        ? getCellBackground(order.status, 'bg-slate-200 text-slate-900 font-bold')
                         : items.length > 1 
-                          ? 'bg-blue-50 border-l-2 border-l-blue-200' 
-                          : 'bg-gray-100'
+                          ? getCellBackground(order.status, 'bg-blue-50 border-l-2 border-l-blue-200')
+                          : getCellBackground(order.status, 'bg-gray-100')
                     } border-r border-gray-200 text-sm text-center align-middle`}>
                       {itemIndex === 0 ? (
                         <div>
@@ -1799,13 +1992,28 @@ export default function OrdersPage() {
                       ) : ''}
                     </TableCell>
                     
+                    {/* Time - only show for first item of each order */}
+                    <TableCell className={`${
+                      itemIndex === 0 
+                        ? getCellBackground(order.status, 'bg-slate-200 text-slate-900 font-bold')
+                        : items.length > 1 
+                          ? getCellBackground(order.status, 'bg-blue-50 border-l-2 border-l-blue-200')
+                          : getCellBackground(order.status, 'bg-gray-100')
+                    } border-r border-gray-200 text-sm text-center align-middle`}>
+                      {itemIndex === 0 ? (
+                        <div className="font-mono">
+                          {format(new Date(order.orderDate), 'HH:mm:ss')}
+                        </div>
+                      ) : ''}
+                    </TableCell>
+                    
                     {/* Order ID - only show for first item of each order */}
                     <TableCell className={`${
                       itemIndex === 0 
-                        ? 'bg-indigo-200 text-indigo-900 font-bold' 
+                        ? getCellBackground(order.status, 'bg-indigo-200 text-indigo-900 font-bold')
                         : items.length > 1 
-                          ? 'bg-indigo-50 border-l-2 border-l-indigo-200' 
-                          : 'bg-gray-100'
+                          ? getCellBackground(order.status, 'bg-indigo-50 border-l-2 border-l-indigo-200')
+                          : getCellBackground(order.status, 'bg-gray-100')
                     } border-r border-gray-200 text-sm text-center align-middle`}>
                       {itemIndex === 0 ? (
                         <div className="font-mono text-xs">
@@ -1821,10 +2029,10 @@ export default function OrdersPage() {
                     {/* Name - only show for first item of each order */}
                     <TableCell className={`${
                       itemIndex === 0 
-                        ? 'bg-green-200 text-green-900 font-bold' 
+                        ? getCellBackground(order.status, 'bg-green-200 text-green-900 font-bold')
                         : items.length > 1 
-                          ? 'bg-green-50 border-l-2 border-l-green-200' 
-                          : 'bg-gray-100'
+                          ? getCellBackground(order.status, 'bg-green-50 border-l-2 border-l-green-200')
+                          : getCellBackground(order.status, 'bg-gray-100')
                     } border-r border-gray-200 text-sm align-middle`}>
                       {itemIndex === 0 ? order.name : items.length > 1 ? (
                         <div className="text-xs text-green-600 italic pl-4">
@@ -1836,10 +2044,10 @@ export default function OrdersPage() {
                     {/* Address - only show for first item of each order */}
                     <TableCell className={`${
                       itemIndex === 0 
-                        ? 'bg-yellow-200 text-yellow-900' 
+                        ? getCellBackground(order.status, 'bg-yellow-200 text-yellow-900')
                         : items.length > 1 
-                          ? 'bg-yellow-50 border-l-2 border-l-yellow-200' 
-                          : 'bg-gray-100'
+                          ? getCellBackground(order.status, 'bg-yellow-50 border-l-2 border-l-yellow-200')
+                          : getCellBackground(order.status, 'bg-gray-100')
                     } border-r border-gray-200 text-xs align-middle`}>
                       {itemIndex === 0 ? order.address : items.length > 1 ? (
                         <div className="text-xs text-yellow-600 italic pl-4">
@@ -1851,10 +2059,10 @@ export default function OrdersPage() {
                     {/* Phone - only show for first item of each order */}
                     <TableCell className={`${
                       itemIndex === 0 
-                        ? 'bg-blue-200 text-blue-900 font-bold' 
+                        ? getCellBackground(order.status, 'bg-blue-200 text-blue-900 font-bold')
                         : items.length > 1 
-                          ? 'bg-blue-50 border-l-2 border-l-blue-200' 
-                          : 'bg-gray-100'
+                          ? getCellBackground(order.status, 'bg-blue-50 border-l-2 border-l-blue-200')
+                          : getCellBackground(order.status, 'bg-gray-100')
                     } text-center border-r border-gray-200 text-sm align-middle`}>
                       {itemIndex === 0 ? (
                         <div>
@@ -1878,7 +2086,7 @@ export default function OrdersPage() {
                     
                     {/* Item Details - show for each item with enhanced styling for grouped items */}
                     <TableCell className={`border-r border-gray-200 align-middle p-2 ${
-                      items.length > 1 ? 'bg-purple-50 border-l-2 border-l-purple-300' : ''
+                      items.length > 1 ? getCellBackground(order.status, 'bg-purple-50 border-l-2 border-l-purple-300') : getCellBackground(order.status, '')
                     }`}>
                       <div className="flex items-center gap-3">
                         {/* Product Image */}
@@ -1918,10 +2126,10 @@ export default function OrdersPage() {
                     {/* Delivery Charge - only show for first item of each order */}
                     <TableCell className={`${
                       itemIndex === 0 
-                        ? 'bg-orange-200 text-orange-900 font-bold' 
+                        ? getCellBackground(order.status, 'bg-orange-200 text-orange-900 font-bold')
                         : items.length > 1 
-                          ? 'bg-orange-50 border-l-2 border-l-orange-200' 
-                          : 'bg-gray-100'
+                          ? getCellBackground(order.status, 'bg-orange-50 border-l-2 border-l-orange-200')
+                          : getCellBackground(order.status, 'bg-gray-100')
                     } text-center border-r border-gray-200 align-middle`}>
                       {itemIndex === 0 ? `$${order.deliveryCharge || 0}` : items.length > 1 ? (
                         <div className="text-xs text-orange-600 italic">
@@ -1933,10 +2141,10 @@ export default function OrdersPage() {
                     {/* Total Amount - only show for first item of each order */}
                     <TableCell className={`${
                       itemIndex === 0 
-                        ? 'bg-green-300 text-green-900 font-bold' 
+                        ? getCellBackground(order.status, 'bg-green-300 text-green-900 font-bold')
                         : items.length > 1 
-                          ? 'bg-green-50 border-l-2 border-l-green-200' 
-                          : 'bg-gray-100'
+                          ? getCellBackground(order.status, 'bg-green-50 border-l-2 border-l-green-200')
+                          : getCellBackground(order.status, 'bg-gray-100')
                     } text-center border-r border-gray-200 align-middle`}>
                       {itemIndex === 0 ? `$${order.items.reduce((sum, item) => sum + ((item as any).unitSellingPrice || (item as any).unitPrice || 0), 0).toFixed(2)}` : items.length > 1 ? (
                         <div className="text-xs text-green-600 font-medium">
@@ -1948,10 +2156,10 @@ export default function OrdersPage() {
                     {/* Total Profit - only show for first item of each order */}
                     <TableCell className={`${
                       itemIndex === 0 
-                        ? 'bg-emerald-300 text-emerald-900 font-bold' 
+                        ? getCellBackground(order.status, 'bg-emerald-300 text-emerald-900 font-bold')
                         : items.length > 1 
-                          ? 'bg-emerald-50 border-l-2 border-l-emerald-200' 
-                          : 'bg-gray-100'
+                          ? getCellBackground(order.status, 'bg-emerald-50 border-l-2 border-l-emerald-200')
+                          : getCellBackground(order.status, 'bg-gray-100')
                     } text-center border-r border-gray-200 align-middle`}>
                       {itemIndex === 0 ? `$${order.totalProfit?.toFixed(2) || '0.00'}` : items.length > 1 ? (
                         <div className="text-xs text-emerald-600 font-medium">
@@ -1963,10 +2171,10 @@ export default function OrdersPage() {
                     {/* Status - only show for first item of each order */}
                     <TableCell className={`${
                       itemIndex === 0 
-                        ? 'bg-pink-200' 
+                        ? getCellBackground(order.status, 'bg-pink-200')
                         : items.length > 1 
-                          ? 'bg-pink-50 border-l-2 border-l-pink-200' 
-                          : 'bg-gray-100'
+                          ? getCellBackground(order.status, 'bg-pink-50 border-l-2 border-l-pink-200')
+                          : getCellBackground(order.status, 'bg-gray-100')
                     } text-center border-r border-gray-200 align-middle`}>
                       {itemIndex === 0 ? (
                         <select
@@ -2014,10 +2222,10 @@ export default function OrdersPage() {
                     {/* API Status - only show for first item of each order */}
                     <TableCell className={`${
                       itemIndex === 0 
-                        ? 'bg-indigo-200' 
+                        ? getCellBackground(order.status, 'bg-indigo-200')
                         : items.length > 1 
-                          ? 'bg-indigo-50 border-l-2 border-l-indigo-200' 
-                          : 'bg-gray-100'
+                          ? getCellBackground(order.status, 'bg-indigo-50 border-l-2 border-l-indigo-200')
+                          : getCellBackground(order.status, 'bg-gray-100')
                     } text-center border-r border-gray-200 align-middle`}>
                       {itemIndex === 0 ? (
                         <div className="text-xs">
@@ -2088,10 +2296,10 @@ export default function OrdersPage() {
                     {/* Pickup Date - only show for first item of each order */}
                     <TableCell className={`${
                       itemIndex === 0 
-                        ? 'bg-yellow-200 text-yellow-900' 
+                        ? getCellBackground(order.status, 'bg-yellow-200 text-yellow-900')
                         : items.length > 1 
-                          ? 'bg-yellow-50 border-l-2 border-l-yellow-200' 
-                          : 'bg-gray-100'
+                          ? getCellBackground(order.status, 'bg-yellow-50 border-l-2 border-l-yellow-200')
+                          : getCellBackground(order.status, 'bg-gray-100')
                     } text-center border-r border-gray-200 text-xs align-middle`}>
                       {itemIndex === 0 && order.pickupDate ? format(new Date(order.pickupDate), 'dd MMM yy') : items.length > 1 && itemIndex > 0 ? (
                         <div className="text-xs text-yellow-600 italic">
@@ -2103,10 +2311,10 @@ export default function OrdersPage() {
                     {/* Reason - only show for first item of each order */}
                     <TableCell className={`${
                       itemIndex === 0 
-                        ? 'bg-red-200 text-red-900' 
+                        ? getCellBackground(order.status, 'bg-red-200 text-red-900')
                         : items.length > 1 
-                          ? 'bg-red-50 border-l-2 border-l-red-200' 
-                          : 'bg-gray-100'
+                          ? getCellBackground(order.status, 'bg-red-50 border-l-2 border-l-red-200')
+                          : getCellBackground(order.status, 'bg-gray-100')
                     } border-r border-gray-200 text-xs align-middle`}>
                       {itemIndex === 0 ? (order.reasonNote || '') : items.length > 1 ? (
                         <div className="text-xs text-red-600 italic pl-4">
@@ -2118,10 +2326,10 @@ export default function OrdersPage() {
                     {/* Consignment ID - only show for first item of each order */}
                     <TableCell className={`${
                       itemIndex === 0 
-                        ? 'bg-blue-50' 
+                        ? getCellBackground(order.status, 'bg-blue-50')
                         : items.length > 1 
-                          ? 'bg-blue-25 border-l-2 border-l-blue-200' 
-                          : 'bg-gray-100'
+                          ? getCellBackground(order.status, 'bg-blue-25 border-l-2 border-l-blue-200')
+                          : getCellBackground(order.status, 'bg-gray-100')
                     } border-r border-gray-200 text-xs align-middle text-center`}>
                       {itemIndex === 0 ? (
                         editingConsignmentId === order._id ? (
@@ -2175,10 +2383,10 @@ export default function OrdersPage() {
                     {/* Tracking Code - only show for first item of each order */}
                     <TableCell className={`${
                       itemIndex === 0 
-                        ? 'bg-yellow-50' 
+                        ? getCellBackground(order.status, 'bg-yellow-50')
                         : items.length > 1 
-                          ? 'bg-yellow-25 border-l-2 border-l-yellow-200' 
-                          : 'bg-gray-100'
+                          ? getCellBackground(order.status, 'bg-yellow-25 border-l-2 border-l-yellow-200')
+                          : getCellBackground(order.status, 'bg-gray-100')
                     } border-r border-gray-200 text-xs align-middle text-center`}>
                       {itemIndex === 0 ? (
                         <div className="flex items-center justify-center gap-1">
@@ -2207,10 +2415,10 @@ export default function OrdersPage() {
                     {/* Actions - only show for first item of each order */}
                     <TableCell className={`${
                       itemIndex === 0 
-                        ? 'bg-gray-300' 
+                        ? getCellBackground(order.status, 'bg-gray-300')
                         : items.length > 1 
-                          ? 'bg-gray-100 border-l-2 border-l-gray-300' 
-                          : 'bg-gray-100'
+                          ? getCellBackground(order.status, 'bg-gray-100 border-l-2 border-l-gray-300')
+                          : getCellBackground(order.status, 'bg-gray-100')
                     } text-center align-middle`}>
                       {itemIndex === 0 ? (
                         <div className="flex items-center justify-center gap-1 flex-wrap">
@@ -2268,15 +2476,15 @@ export default function OrdersPage() {
       </div>
 
       {/* Pagination Controls */}
-      <div className="mt-6 flex items-center justify-between bg-white p-4 rounded-lg shadow">
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-gray-700">
+      <div className="mt-4 sm:mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-3 sm:p-4 rounded-lg shadow">
+        <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 w-full sm:w-auto">
+          <span className="text-xs sm:text-sm text-gray-700 text-center">
             Showing {((parseInt(filters.page) - 1) * parseInt(filters.pageSize)) + 1} to {Math.min(parseInt(filters.page) * parseInt(filters.pageSize), orders.pagination.total)} of {orders.pagination.total} orders
           </span>
           <select
             value={filters.pageSize}
             onChange={(e) => handlePageSizeChange(parseInt(e.target.value))}
-            className="border border-gray-300 rounded px-2 py-1 text-sm bg-white text-gray-900"
+            className="mobile-select border border-gray-300 rounded px-2 py-1 text-xs sm:text-sm bg-white text-gray-900 w-full sm:w-auto"
             style={{ color: '#111827' }}
           >
             <option value="10" style={{ color: '#111827', backgroundColor: '#ffffff' }}>10 per page</option>
@@ -2286,14 +2494,16 @@ export default function OrdersPage() {
           </select>
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2 flex-wrap justify-center">
           <Button
             variant="outline"
             size="sm"
             onClick={() => handlePageChange(parseInt(filters.page) - 1)}
             disabled={parseInt(filters.page) <= 1}
+            className="text-xs tap-target-sm"
           >
-            Previous
+            <span className="hidden sm:inline">Previous</span>
+            <span className="sm:hidden">Prev</span>
           </Button>
           
           <div className="flex items-center gap-1">
@@ -2318,7 +2528,7 @@ export default function OrdersPage() {
                   variant={pageNumber === currentPage ? "default" : "outline"}
                   size="sm"
                   onClick={() => handlePageChange(pageNumber)}
-                  className="w-8 h-8 p-0"
+                  className="w-8 h-8 p-0 text-xs sm:text-sm tap-target-sm"
                 >
                   {pageNumber}
                 </Button>
@@ -2331,6 +2541,7 @@ export default function OrdersPage() {
             size="sm"
             onClick={() => handlePageChange(parseInt(filters.page) + 1)}
             disabled={parseInt(filters.page) >= orders.pagination.totalPages}
+            className="text-xs tap-target-sm"
           >
             Next
           </Button>
@@ -2339,73 +2550,76 @@ export default function OrdersPage() {
 
       {/* Create Order Modal */}
       {showCreateForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">Create Multi-Item Order</h2>
-              <Button variant="outline" onClick={() => setShowCreateForm(false)}>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4 overflow-y-auto safe-area-top safe-area-bottom">
+          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-4xl my-4 max-h-[95vh] sm:max-h-[90vh] overflow-y-auto mobile-modal">
+            <div className="flex justify-between items-center mb-3 sm:mb-4 sticky top-0 bg-white z-10 pb-2 border-b">
+              <h2 className="text-lg sm:text-xl font-bold">Create Multi-Item Order</h2>
+              <Button variant="outline" onClick={() => setShowCreateForm(false)} className="tap-target-sm">
                 <X className="h-4 w-4" />
               </Button>
             </div>
             
-            <form onSubmit={handleCreateOrder} className="space-y-4">
+            <form onSubmit={handleCreateOrder} className="space-y-3 sm:space-y-4">
               {/* Customer Information */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-50 rounded">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Customer Name *</label>
+                  <label className="block text-xs sm:text-sm font-medium mb-1">Customer Name *</label>
                   <Input
                     value={newOrder.name}
                     onChange={(e) => setNewOrder(prev => ({ ...prev, name: e.target.value }))}
                     placeholder="Enter customer name"
+                    className="mobile-input"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Phone *</label>
+                  <label className="block text-xs sm:text-sm font-medium mb-1">Phone *</label>
                   <Input
                     required
                     value={newOrder.phone}
                     onChange={(e) => setNewOrder(prev => ({ ...prev, phone: e.target.value }))}
                     placeholder="Enter phone number"
+                    className="mobile-input"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Address *</label>
+                  <label className="block text-xs sm:text-sm font-medium mb-1">Address *</label>
                   <Input
                     value={newOrder.address}
                     onChange={(e) => setNewOrder(prev => ({ ...prev, address: e.target.value }))}
                     placeholder="Enter address"
+                    className="mobile-input"
                   />
                 </div>
               </div>
 
               {/* Order Items */}
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-medium">Order Items</h3>
-                  <Button type="button" onClick={addNewItem} variant="outline" size="sm">
-                    <Plus className="h-4 w-4 mr-2" />
+                  <h3 className="text-base sm:text-lg font-medium">Order Items</h3>
+                  <Button type="button" onClick={addNewItem} variant="outline" size="sm" className="tap-target-sm text-xs sm:text-sm">
+                    <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                     Add Item
                   </Button>
                 </div>
 
                 {newOrder.items.map((item, index) => (
-                  <div key={index} className="p-4 border rounded-lg space-y-4">
+                  <div key={index} className="p-3 sm:p-4 border rounded-lg space-y-3 sm:space-y-4">
                     <div className="flex justify-between items-center">
-                      <h4 className="font-medium">Item {index + 1}</h4>
+                      <h4 className="text-sm sm:text-base font-medium">Item {index + 1}</h4>
                       {newOrder.items.length > 1 && (
                         <Button
                           type="button"
                           onClick={() => removeItem(index)}
                           variant="outline"
                           size="sm"
-                          className="text-red-600"
+                          className="text-red-600 tap-target-sm text-xs"
                         >
-                          <Minus className="h-4 w-4" />
+                          <Minus className="h-3 w-3 sm:h-4 sm:w-4" />
                         </Button>
                       )}
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4">
                       <div className="lg:col-span-2">
                         <label className="block text-sm font-medium mb-1">Product *</label>
                         <ProductSelector
@@ -2622,11 +2836,11 @@ export default function OrdersPage() {
               </div>
 
               <div className="flex justify-end gap-4 pt-4">
-                <Button type="button" variant="outline" onClick={() => setShowCreateForm(false)}>
+                <Button type="button" variant="outline" onClick={() => setShowCreateForm(false)} disabled={creatingOrder}>
                   Cancel
                 </Button>
-                <Button type="submit">
-                  Create Order ({newOrder.items.length} items)
+                <Button type="submit" disabled={creatingOrder}>
+                  {creatingOrder ? 'Creating...' : `Create Order (${newOrder.items.length} items)`}
                 </Button>
               </div>
             </form>
@@ -2871,6 +3085,9 @@ export default function OrdersPage() {
           </div>
         </div>
       )}
+
+      {/* About Developer Section */}
+      <AboutDeveloper />
     </HydrationSafe>
   );
 }

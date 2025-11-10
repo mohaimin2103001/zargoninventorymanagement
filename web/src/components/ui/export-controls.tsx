@@ -134,11 +134,11 @@ export default function ExportControls({ type, onExport, currentFilters = {} }: 
   }
 
   return (
-    <Card className="w-full">
+    <Card className="w-full dark:bg-gray-800 dark:border-gray-700">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Download className="h-5 w-5" />
+          <CardTitle className="text-lg flex items-center gap-2 dark:text-gray-100">
+            <Download className="h-5 w-5 dark:text-gray-300" />
             Export {type === 'inventory' ? 'Stock' : 'Orders'}
           </CardTitle>
           <Button
@@ -174,9 +174,9 @@ export default function ExportControls({ type, onExport, currentFilters = {} }: 
 
         {/* Expanded Filters */}
         {isExpanded && (
-          <div className="space-y-4 pt-4 border-t">
+          <div className="space-y-4 pt-4 border-t dark:border-gray-700">
             <div>
-              <label className="text-sm font-medium mb-2 block">Time Range</label>
+              <label className="text-sm font-medium mb-2 block dark:text-gray-300">Time Range</label>
               <div className="flex flex-wrap gap-2">
                 <Button
                   variant={filters.timeRange === 'week' ? 'default' : 'outline'}

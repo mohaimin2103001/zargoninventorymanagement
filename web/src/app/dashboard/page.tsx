@@ -12,14 +12,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { ImageUpload } from '@/components/ui/image-upload';
 import ExportControls from '@/components/ui/export-controls';
-import { Plus, Download } from 'lucide-react';
+import { Plus, Download, Copy } from 'lucide-react';
+import AboutDeveloper from '@/components/ui/about-developer';
 
 export default function StockPage() {
   const { user } = useAuth();
   const [inventory, setInventory] = useState<PaginatedResponse<InventoryItem>>({
     data: [],
     page: 1,
-    pageSize: 20,
+    pageSize: 50,
     total: 0,
     totalPages: 0
   });
@@ -27,6 +28,8 @@ export default function StockPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [copiedItemId, setCopiedItemId] = useState<string | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
     finalCode: '',
     color: '',
@@ -36,7 +39,7 @@ export default function StockPage() {
     zeroStockSizes: [] as string[],
     lowStockSizes: [] as string[],
     page: 1,
-    pageSize: 20,
+    pageSize: 50,
   });
 
   const [newItem, setNewItem] = useState({
@@ -452,54 +455,66 @@ export default function StockPage() {
   };
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8">
-      <div className="sm:flex sm:items-center">
+    <div className="mobile-padding">
+      <div className="sm:flex sm:items-center mb-4 sm:mb-6">
         <div className="sm:flex-auto">
-          <h1 className="text-2xl font-semibold text-gray-900 ecommerce-header">Stock Management</h1>
-          <p className="mt-2 text-sm text-gray-700">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold text-gray-900 ecommerce-header">Stock Management</h1>
+          <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-700">
             Manage your inventory items, sizes, and pricing.
           </p>
         </div>
-        <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none flex flex-wrap gap-2">
+        <div className="mt-3 sm:mt-0 sm:ml-16 sm:flex-none flex flex-wrap gap-2">
           <Button
             variant="outline"
             onClick={exportToCSV}
-            className="inline-flex items-center ecommerce-button"
+            className="inline-flex items-center ecommerce-button tap-target-sm text-xs sm:text-sm"
           >
-            <Download className="w-4 h-4 mr-2" />
+            <Download className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
             CSV
           </Button>
           <Button
             variant="outline"
             onClick={exportToExcel}
-            className="inline-flex items-center ecommerce-button bg-green-50 border-green-300 text-green-700 hover:bg-green-100"
+            className="inline-flex items-center ecommerce-button bg-green-50 border-green-300 text-green-700 hover:bg-green-100 tap-target-sm text-xs sm:text-sm"
           >
-            <Download className="w-4 h-4 mr-2" />
+            <Download className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
             Excel
           </Button>
           <Button
             variant="outline"
             onClick={exportToPDF}
-            className="inline-flex items-center ecommerce-button bg-red-50 border-red-300 text-red-700 hover:bg-red-100"
+            className="inline-flex items-center ecommerce-button bg-red-50 border-red-300 text-red-700 hover:bg-red-100 tap-target-sm text-xs sm:text-sm"
           >
-            <Download className="w-4 h-4 mr-2" />
+            <Download className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
             PDF
           </Button>
           {user?.role === 'admin' && (
             <Button 
               onClick={() => setShowAddForm(true)}
-              className="inline-flex items-center bg-green-600 hover:bg-green-700 text-white font-semibold ecommerce-button"
+              className="inline-flex items-center bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-semibold ecommerce-button tap-target-sm text-xs sm:text-sm"
             >
-              <Plus className="w-4 h-4 mr-2" />
+              <Plus className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
               Add Item
             </Button>
           )}
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="mt-6 bg-white p-4 rounded-lg shadow">
-        <div className="grid grid-cols-1 md:grid-cols-8 gap-4">
+      {/* Filter Toggle Button */}
+      <div className="mb-3 sm:mb-4">
+        <Button
+          variant="outline"
+          onClick={() => setShowFilters(!showFilters)}
+          className="flex items-center gap-2 tap-target-sm text-sm sm:text-base"
+        >
+          {showFilters ? 'Hide Filters' : 'Show Filters'}
+        </Button>
+      </div>
+
+      {/* Filters - Collapsible on Mobile */}
+      {showFilters && (
+        <div className="mb-4 sm:mb-6 bg-white p-3 sm:p-4 rounded-lg shadow">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-3 sm:gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Final Code
@@ -645,10 +660,11 @@ export default function StockPage() {
             </Button>
           </div>
         </div>
-      </div>
+        </div>
+      )}
 
       {/* Export Controls */}
-      <div className="mt-6">
+      <div className="mt-4 sm:mt-6">
         <ExportControls 
           type="inventory" 
           currentFilters={{
@@ -661,33 +677,35 @@ export default function StockPage() {
       </div>
 
       {/* Inventory Table */}
-      <div className="mt-6 bg-white shadow rounded-lg overflow-hidden">
+      <div className="mt-4 sm:mt-6 bg-white shadow rounded-lg overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center h-64" suppressHydrationWarning>
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" suppressHydrationWarning></div>
           </div>
         ) : (
-          <div className="overflow-auto border rounded-lg" style={{ scrollbarGutter: 'stable', maxHeight: inventory.data.length > 10 ? '90vh' : 'auto' }}>
-            <div className="min-w-[1400px]">
-              <Table className="w-full table-fixed">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[80px] px-2">PID</TableHead>
-                    <TableHead className="w-[120px] px-2">Color</TableHead>
-                    <TableHead className="w-[100px] px-2">Image</TableHead>
-                    <TableHead className="w-[220px] px-2">Sizes (M/L/XL/XXL)</TableHead>
-                    <TableHead className="w-[100px] px-2">Total Qty</TableHead>
-                    <TableHead className="w-[120px] px-2">Final Code</TableHead>
-                    <TableHead className="w-[100px] px-2">Buy Price</TableHead>
-                    <TableHead className="w-[200px] px-2">Description</TableHead>
-                    <TableHead className="w-[120px] px-2">Date Added</TableHead>
-                    <TableHead className="w-[100px] px-2">Status</TableHead>
-                    {user?.role === 'admin' && <TableHead className="w-[180px] px-2">Actions</TableHead>}
-                  </TableRow>
-                </TableHeader>
+          <div className="mobile-table-scroll overflow-x-auto" style={{ maxHeight: inventory.data.length > 10 ? '90vh' : 'auto' }}>
+            <Table className="w-full table-fixed min-w-[1400px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[80px] px-2">PID</TableHead>
+                  <TableHead className="w-[120px] px-2">Color</TableHead>
+                  <TableHead className="w-[100px] px-2">Image</TableHead>
+                  <TableHead className="w-[220px] px-2">Sizes (M/L/XL/XXL)</TableHead>
+                  <TableHead className="w-[100px] px-2">Total Qty</TableHead>
+                  <TableHead className="w-[120px] px-2">Final Code</TableHead>
+                  <TableHead className="w-[100px] px-2">Buy Price</TableHead>
+                  <TableHead className="w-[200px] px-2">Description</TableHead>
+                  <TableHead className="w-[120px] px-2">Date Added</TableHead>
+                  <TableHead className="w-[100px] px-2">Status</TableHead>
+                  {user?.role === 'admin' && <TableHead className="w-[180px] px-2">Actions</TableHead>}
+                </TableRow>
+              </TableHeader>
               <TableBody>
                 {inventory.data.map((item) => (
-                  <TableRow key={item._id}>
+                  <TableRow 
+                    key={item._id}
+                    className="transition-all duration-200 hover:bg-blue-50 hover:shadow-md cursor-pointer"
+                  >
                     <TableCell className="bg-blue-100 text-blue-900 font-bold text-lg px-2 w-[80px]">{item.pid}</TableCell>
                     <TableCell className="bg-violet-100 text-violet-900 font-bold text-lg px-2 w-[120px]">{item.color}</TableCell>
                     <TableCell className="px-2 w-[100px]">
@@ -743,8 +761,43 @@ export default function StockPage() {
                     </TableCell>
                     <TableCell className="product-code text-sm px-2 w-[120px] truncate">{item.finalCode}</TableCell>
                     <TableCell className="bg-green-100 text-green-900 font-bold text-sm px-2 w-[100px]">৳{item.buyPrice}</TableCell>
-                    <TableCell className="bg-cyan-100 text-cyan-900 text-sm px-2 w-[200px] truncate font-medium">
-                      {item.description || '-'}
+                    <TableCell className="bg-cyan-100 text-cyan-900 text-sm px-2 w-[200px] font-medium">
+                      <div className="flex items-center gap-2 justify-between relative">
+                        <span className="truncate flex-1">{item.description || '-'}</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const text = item.description || '-';
+                            navigator.clipboard.writeText(text).then(() => {
+                              // Show "Copied!" notification
+                              setCopiedItemId(item._id);
+                              
+                              // Show a brief visual feedback on button
+                              const btn = e.currentTarget as HTMLElement;
+                              if (btn) {
+                                const originalClass = btn.className;
+                                btn.className = btn.className.replace('bg-cyan-600', 'bg-green-600');
+                                setTimeout(() => {
+                                  btn.className = originalClass;
+                                  setCopiedItemId(null);
+                                }, 1500);
+                              }
+                            }).catch(err => {
+                              console.error('Failed to copy:', err);
+                              alert('Failed to copy to clipboard');
+                            });
+                          }}
+                          className="bg-cyan-600 hover:bg-cyan-700 text-white p-1 rounded transition-colors flex-shrink-0"
+                          title="Copy description"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </button>
+                        {copiedItemId === item._id && (
+                          <span className="absolute -top-6 right-0 bg-green-600 text-white text-xs px-2 py-1 rounded shadow-lg animate-fade-in">
+                            Copied!
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="bg-purple-100 text-purple-900 font-medium text-sm px-2 w-[120px]">
                       {item.dateAdded ? new Date(item.dateAdded).toLocaleDateString() : '-'}
@@ -781,38 +834,43 @@ export default function StockPage() {
                   </TableRow>
                 ))}
               </TableBody>
-              </Table>
-            </div>
+            </Table>
           </div>
         )}
       </div>
 
       {/* Pagination */}
       {inventory.totalPages > 1 && (
-        <div className="mt-6 flex items-center justify-between">
-          <div className="text-sm text-gray-700">
+        <div className="mt-4 sm:mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-3 sm:p-4 rounded-lg shadow">
+          <div className="text-xs sm:text-sm text-gray-700 text-center sm:text-left w-full sm:w-auto">
             Showing {((inventory.page - 1) * inventory.pageSize) + 1} to{' '}
             {Math.min(inventory.page * inventory.pageSize, inventory.total)} of{' '}
             {inventory.total} results
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center justify-center gap-1 sm:gap-2 w-full sm:w-auto">
             <Button
               variant="outline"
               disabled={inventory.page === 1}
               onClick={() => handleFilterChange('page', 1)}
+              className="text-xs tap-target-sm px-2 sm:px-3"
+              size="sm"
             >
-              First
+              <span className="hidden sm:inline">First</span>
+              <span className="sm:hidden">«</span>
             </Button>
             <Button
               variant="outline"
               disabled={inventory.page === 1}
               onClick={() => handleFilterChange('page', inventory.page - 1)}
+              className="text-xs tap-target-sm px-2 sm:px-3"
+              size="sm"
             >
-              Previous
+              <span className="hidden sm:inline">Previous</span>
+              <span className="sm:hidden">‹</span>
             </Button>
             
             {/* Page Numbers */}
-            <div className="flex space-x-1">
+            <div className="flex gap-1">
               {Array.from({ length: Math.min(5, inventory.totalPages) }, (_, i) => {
                 let pageNum;
                 const totalPages = inventory.totalPages;
@@ -833,7 +891,7 @@ export default function StockPage() {
                     variant={inventory.page === pageNum ? "default" : "outline"}
                     size="sm"
                     onClick={() => handleFilterChange('page', pageNum)}
-                    className="w-10 h-10"
+                    className="w-8 h-8 sm:w-10 sm:h-10 p-0 text-xs sm:text-sm tap-target-sm"
                   >
                     {pageNum}
                   </Button>
@@ -845,15 +903,21 @@ export default function StockPage() {
               variant="outline"
               disabled={inventory.page === inventory.totalPages}
               onClick={() => handleFilterChange('page', inventory.page + 1)}
+              className="text-xs tap-target-sm px-2 sm:px-3"
+              size="sm"
             >
-              Next
+              <span className="hidden sm:inline">Next</span>
+              <span className="sm:hidden">›</span>
             </Button>
             <Button
               variant="outline"
               disabled={inventory.page === inventory.totalPages}
               onClick={() => handleFilterChange('page', inventory.totalPages)}
+              className="text-xs tap-target-sm px-2 sm:px-3"
+              size="sm"
             >
-              Last
+              <span className="hidden sm:inline">Last</span>
+              <span className="sm:hidden">»</span>
             </Button>
           </div>
         </div>
@@ -1174,6 +1238,9 @@ export default function StockPage() {
           </div>
         </div>
       )}
+
+      {/* About Developer Section */}
+      <AboutDeveloper />
     </div>
   );
 }

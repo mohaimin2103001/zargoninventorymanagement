@@ -21,12 +21,24 @@ export const getOrders = async (req: AuthRequest, res: Response) => {
       ];
     }
 
+    if (query.qAddress) {
+      filter.address = { $regex: query.qAddress, $options: 'i' };
+    }
+
     if (query.phone) {
       filter.phone = { $regex: query.phone, $options: 'i' };
     }
 
     if (query.code) {
       filter['items.productCode'] = { $regex: query.code, $options: 'i' };
+    }
+
+    if (query.consignmentId) {
+      // Try to parse as number for exact match, otherwise skip
+      const consignmentNum = parseInt(query.consignmentId);
+      if (!isNaN(consignmentNum)) {
+        filter.courierConsignmentId = consignmentNum;
+      }
     }
 
     if (query.reason) {

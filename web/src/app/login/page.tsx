@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { authAPI } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Package, Mail, Lock, AlertCircle, Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -64,68 +65,122 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-lg border border-gray-200">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Zargon Inventory
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Sign in to your account
-          </p>
-        </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email address
-              </label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="mt-1"
-                placeholder="Enter your email"
-              />
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 relative overflow-hidden">
+      {/* Animated Background Elements */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-blue-400/20 to-transparent rounded-full blur-3xl animate-pulse-slow"></div>
+        <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-purple-400/20 to-transparent rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '1s' }}></div>
+      </div>
+
+      {/* Login Card */}
+      <div className="relative z-10 w-full max-w-md mx-4">
+        <div className="glass rounded-3xl shadow-elegant-xl p-8 md:p-10 animate-scale-in">
+          {/* Logo & Title */}
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl shadow-elegant mb-4 hover:scale-110 transition-transform duration-300">
+              <Package className="w-8 h-8 text-white" />
             </div>
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
-              </label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-1"
-                placeholder="Enter your password"
-              />
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Welcome Back
+            </h1>
+            <div className="flex flex-col items-center gap-1">
+              <p className="text-gray-600 font-medium">
+                Sign in to Zargon Inventory
+              </p>
+              <p className="text-xs text-gray-400 italic">
+                developed by md wariul mohaimin
+              </p>
             </div>
           </div>
 
-          {error && (
-            <div className="alert-error px-4 py-3 rounded-lg">
-              {error}
+          {/* Login Form */}
+          <form className="space-y-6" onSubmit={handleSubmit}>
+            {/* Email Input */}
+            <div className="space-y-2">
+              <label htmlFor="email" className="form-label flex items-center gap-2">
+                <Mail className="w-4 h-4 text-gray-500" />
+                Email address
+              </label>
+              <div className="relative">
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="input-modern pl-4"
+                  placeholder="you@example.com"
+                />
+              </div>
             </div>
-          )}
 
-          <div>
+            {/* Password Input */}
+            <div className="space-y-2">
+              <label htmlFor="password" className="form-label flex items-center gap-2">
+                <Lock className="w-4 h-4 text-gray-500" />
+                Password
+              </label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="input-modern pl-4"
+                  placeholder="Enter your password"
+                />
+              </div>
+            </div>
+
+            {/* Error Message */}
+            {error && (
+              <div className="alert alert-error animate-slide-down">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm font-medium">{error}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Submit Button */}
             <Button
               type="submit"
               disabled={isLoading}
-              className="w-full btn-primary font-medium py-3 px-4 rounded-md transition-colors"
+              className="w-full h-12 text-base font-semibold shadow-md hover:shadow-lg"
             >
-              {isLoading ? 'Signing in...' : 'Sign in'}
+              {isLoading ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Signing in...
+                </div>
+              ) : (
+                'Sign in'
+              )}
             </Button>
+          </form>
+
+          {/* Additional Info */}
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-600">
+              Zargon Inventory Management System
+            </p>
+            <p className="text-xs text-gray-400 italic mt-1">
+              developed by md wariul mohaimin
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              © 2025 All rights reserved
+            </p>
           </div>
-        </form>
+        </div>
+
+        {/* Decorative Elements */}
+        <div className="absolute -z-10 -top-4 -left-4 w-72 h-72 bg-blue-300 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-pulse-slow"></div>
+        <div className="absolute -z-10 -bottom-4 -right-4 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-pulse-slow" style={{ animationDelay: '2s' }}></div>
       </div>
     </div>
   );

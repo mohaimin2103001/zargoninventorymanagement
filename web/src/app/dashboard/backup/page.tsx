@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { BackupManager } from '@/components/ui/backup-manager';
 import { DatabaseManager } from '@/components/ui/database-manager';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import AboutDeveloper from '@/components/ui/about-developer';
 
 export default function BackupPage() {
   const { user } = useAuth();
@@ -41,6 +42,9 @@ export default function BackupPage() {
           <BackupManager />
         </TabsContent>
       </Tabs>
+
+      {/* About Developer Section */}
+      <AboutDeveloper />
     </div>
   );
 }

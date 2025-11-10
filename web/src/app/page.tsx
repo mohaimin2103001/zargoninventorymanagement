@@ -15,7 +15,9 @@ import {
   AlertTriangle,
   ArrowRight,
   BarChart3,
-  LogOut
+  LogOut,
+  Sparkles,
+  Loader2
 } from 'lucide-react';
 
 export default function HomePage() {
@@ -25,16 +27,11 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Wait for auth to load before checking
     if (isLoading) return;
-    
-    // Only redirect to login if not logged in
     if (!user) {
       router.push('/login');
       return;
     }
-    
-    // If logged in, fetch reports for the home page
     fetchReports();
   }, [user, isLoading, router]);
 
@@ -55,222 +52,198 @@ export default function HomePage() {
     router.push('/login');
   };
 
-  if (!user) {
-    return null;
-  }
+  if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
-      {/* Header */}
-      <header className="bg-white shadow-lg border-b-2 border-blue-200">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-slate-900 dark:to-indigo-950 transition-colors duration-300">
+      <header className="nav-modern">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <Package className="h-9 w-9 text-blue-600 mr-3" />
+            <div className="flex items-center gap-3">
+              <div className="bg-gradient-to-br from-blue-600 to-indigo-600 p-2.5 rounded-xl shadow-md">
+                <Package className="h-6 w-6 text-white" />
+              </div>
               <div>
-                <h1 className="text-xl font-bold text-black">Zargon Inventory</h1>
-                <p className="text-sm text-blue-700 font-semibold">Management System</p>
+                <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Zargon Inventory</h1>
+                <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">Management System</p>
               </div>
             </div>
-            <div className="flex items-center space-x-4">
-              <div className="bg-blue-50 px-3 py-2 rounded-lg border border-blue-200">
-                <p className="text-sm font-bold text-black">
-                  {user.name} <span className="text-xs text-blue-700 capitalize font-semibold">({user.role})</span>
+            <div className="flex items-center gap-4">
+              <div className="glass px-4 py-2 rounded-xl">
+                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                  {user.name} <span className="text-xs text-gray-600 dark:text-gray-400 capitalize">({user.role})</span>
                 </p>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleLogout}
-                className="flex items-center space-x-2 border-2 border-red-300 text-red-700 hover:bg-red-50 hover:border-red-400 font-medium"
-              >
+              <Button variant="outline" size="sm" onClick={handleLogout} className="gap-2 hover:bg-red-50 hover:border-red-300 hover:text-red-700">
                 <LogOut className="h-4 w-4" />
-                <span>Logout</span>
+                <span className="hidden sm:inline">Logout</span>
               </Button>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome Section */}
-        <div className="mb-8 bg-white p-6 rounded-xl shadow-lg border-2 border-blue-200">
-          <h2 className="text-3xl font-bold text-black mb-2">
-            Welcome back, {user.name}! 👋
-          </h2>
-          <p className="text-gray-800 text-lg font-medium">
-            Here&apos;s an overview of your inventory and recent activity.
-          </p>
+        <div className="mb-8 card-modern p-8 animate-slide-down">
+          <div className="flex items-center gap-3 mb-3">
+            <Sparkles className="h-7 w-7 text-yellow-500" />
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Welcome back, {user.name}! 👋</h2>
+          </div>
+          <p className="text-gray-600 dark:text-gray-300 text-lg">Here&apos;s an overview of your inventory and recent activity.</p>
         </div>
 
-        {/* Loading State */}
         {loading ? (
-          <div className="text-center py-12 bg-white rounded-xl shadow-lg border-2 border-blue-200">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent"></div>
-            <p className="mt-4 text-black text-lg font-semibold">Loading dashboard...</p>
+          <div className="text-center py-20 card-modern animate-pulse">
+            <div className="flex flex-col items-center gap-4">
+              <Loader2 className="h-12 w-12 animate-spin text-blue-600" />
+              <p className="text-gray-700 text-lg font-semibold">Loading dashboard...</p>
+            </div>
           </div>
         ) : reports?.overview ? (
           <>
-            {/* Quick Stats */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-300 shadow-lg hover:shadow-xl transition-all duration-200">
+              <Card className="stat-card-blue stagger-item">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-bold text-blue-900">Total Products</CardTitle>
-                  <Package className="h-5 w-5 text-blue-700" />
+                  <CardTitle className="text-sm font-bold text-gray-700 dark:text-gray-300">Total Products</CardTitle>
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                    <Package className="h-5 w-5 text-blue-600 dark:text-blue-300" />
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-black text-black">
-                    {reports.overview.totalAvailableProducts.productCount}
-                  </div>
-                  <p className="text-sm text-blue-800 font-semibold">
-                    Worth ${(reports.overview.totalAvailableProducts.worth || 0).toLocaleString()}
-                  </p>
+                  <div className="text-3xl font-black text-gray-900 dark:text-gray-100 mb-1">{reports.overview.totalAvailableProducts.productCount}</div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Worth ${(reports.overview.totalAvailableProducts.worth || 0).toLocaleString()}</p>
                 </CardContent>
               </Card>
 
-              <Card className="bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-300 shadow-lg hover:shadow-xl transition-all duration-200">
+              <Card className="stat-card-green stagger-item">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-bold text-green-900">Products Sold</CardTitle>
-                  <TrendingUp className="h-5 w-5 text-green-700" />
+                  <CardTitle className="text-sm font-bold text-gray-700 dark:text-gray-300">Products Sold</CardTitle>
+                  <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
+                    <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-300" />
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-black text-black">
-                    {reports.overview.totalProductsSold.amount}
-                  </div>
-                  <p className="text-sm text-green-800 font-semibold">
-                    Revenue ${(reports.overview.totalProductsSold.worth || 0).toLocaleString()}
-                  </p>
+                  <div className="text-3xl font-black text-gray-900 dark:text-gray-100 mb-1">{reports.overview.totalProductsSold.amount}</div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Revenue ${(reports.overview.totalProductsSold.worth || 0).toLocaleString()}</p>
                 </CardContent>
               </Card>
 
-              <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-2 border-yellow-300 shadow-lg hover:shadow-xl transition-all duration-200">
+              <Card className="stat-card-amber stagger-item">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-bold text-yellow-900">Low Stock</CardTitle>
-                  <AlertTriangle className="h-5 w-5 text-yellow-700" />
+                  <CardTitle className="text-sm font-bold text-gray-700 dark:text-gray-300">Low Stock</CardTitle>
+                  <div className="p-2 bg-amber-100 dark:bg-amber-900 rounded-lg">
+                    <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-300" />
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-black text-black">
-                    {reports.overview.lowStockItems}
-                  </div>
-                  <p className="text-sm text-yellow-800 font-semibold">
-                    Items need restocking
-                  </p>
+                  <div className="text-3xl font-black text-gray-900 dark:text-gray-100 mb-1">{reports.overview.lowStockItems}</div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Items need restocking</p>
                 </CardContent>
               </Card>
 
-              <Card className="bg-gradient-to-br from-red-50 to-red-100 border-2 border-red-300 shadow-lg hover:shadow-xl transition-all duration-200">
+              <Card className="stat-card-red stagger-item">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-bold text-red-900">Out of Stock</CardTitle>
-                  <AlertTriangle className="h-5 w-5 text-red-700" />
+                  <CardTitle className="text-sm font-bold text-gray-700 dark:text-gray-300">Out of Stock</CardTitle>
+                  <div className="p-2 bg-red-100 dark:bg-red-900 rounded-lg">
+                    <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-300" />
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-black text-black">
-                    {reports.overview.outOfStockItems}
-                  </div>
-                  <p className="text-sm text-red-800 font-semibold">
-                    Items unavailable
-                  </p>
+                  <div className="text-3xl font-black text-gray-900 dark:text-gray-100 mb-1">{reports.overview.outOfStockItems}</div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Items unavailable</p>
                 </CardContent>
               </Card>
             </div>
           </>
         ) : (
-          <div className="text-center py-12 bg-white rounded-xl shadow-lg border-2 border-red-200">
-            <p className="text-red-600 text-lg font-semibold">Failed to load dashboard data</p>
-            <Button 
-              onClick={fetchReports} 
-              className="mt-4 bg-blue-600 hover:bg-blue-700"
-            >
-              Retry
-            </Button>
+          <div className="text-center py-12 card-modern">
+            <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <p className="text-red-600 text-lg font-semibold mb-4">Failed to load dashboard data</p>
+            <Button onClick={fetchReports} className="gap-2"><ArrowRight className="h-4 w-4" />Retry</Button>
           </div>
         )}
 
-        {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          <Card className="bg-white border-2 border-blue-300 hover:border-blue-400 hover:shadow-xl transition-all duration-200 cursor-pointer transform hover:scale-105" onClick={() => router.push('/dashboard')}>
-            <CardHeader className="bg-gradient-to-r from-blue-100 to-blue-200 border-b-2 border-blue-300">
-              <CardTitle className="flex items-center space-x-3 text-black font-black">
-                <Package className="h-7 w-7 text-blue-700" />
+          <Card className="hover-lift cursor-pointer group" onClick={() => router.push('/dashboard')}>
+            <CardHeader className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 border-b border-blue-100 dark:border-blue-900">
+              <CardTitle className="flex items-center gap-3 text-gray-900 dark:text-gray-100">
+                <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg group-hover:bg-blue-200 dark:group-hover:bg-blue-800 transition-colors">
+                  <Package className="h-6 w-6 text-blue-600 dark:text-blue-300" />
+                </div>
                 <span>Stock Management</span>
               </CardTitle>
-              <CardDescription className="text-gray-800 font-semibold">
-                View, add, edit and manage your product inventory
-              </CardDescription>
+              <CardDescription className="text-gray-600 dark:text-gray-400">View, add, edit and manage your product inventory</CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
-              <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 flex items-center justify-center space-x-2 border-2 border-blue-700">
+              <Button className="w-full gap-2" variant="default">
                 <span>Manage Stock</span>
-                <ArrowRight className="h-5 w-5" />
+                <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </Button>
             </CardContent>
           </Card>
 
-          <Card className="bg-white border-2 border-green-300 hover:border-green-400 hover:shadow-xl transition-all duration-200 cursor-pointer transform hover:scale-105" onClick={() => router.push('/dashboard/orders')}>
-            <CardHeader className="bg-gradient-to-r from-green-100 to-green-200 border-b-2 border-green-300">
-              <CardTitle className="flex items-center space-x-3 text-black font-black">
-                <ShoppingCart className="h-7 w-7 text-green-700" />
+          <Card className="hover-lift cursor-pointer group" onClick={() => router.push('/dashboard/orders')}>
+            <CardHeader className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 border-b border-green-100 dark:border-green-900">
+              <CardTitle className="flex items-center gap-3 text-gray-900 dark:text-gray-100">
+                <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg group-hover:bg-green-200 dark:group-hover:bg-green-800 transition-colors">
+                  <ShoppingCart className="h-6 w-6 text-green-600 dark:text-green-300" />
+                </div>
                 <span>Order Management</span>
               </CardTitle>
-              <CardDescription className="text-gray-800 font-semibold">
-                Process orders, track deliveries, and manage customer requests
-              </CardDescription>
+              <CardDescription className="text-gray-600 dark:text-gray-400">Process orders, track deliveries, and manage customer requests</CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
-              <Button className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 flex items-center justify-center space-x-2 border-2 border-green-700">
+              <Button className="w-full gap-2" variant="success">
                 <span>View Orders</span>
-                <ArrowRight className="h-5 w-5" />
+                <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </Button>
             </CardContent>
           </Card>
 
-          <Card className="bg-white border-2 border-purple-300 hover:border-purple-400 hover:shadow-xl transition-all duration-200 cursor-pointer transform hover:scale-105" onClick={() => router.push('/dashboard/reports')}>
-            <CardHeader className="bg-gradient-to-r from-purple-100 to-purple-200 border-b-2 border-purple-300">
-              <CardTitle className="flex items-center space-x-3 text-black font-black">
-                <BarChart3 className="h-7 w-7 text-purple-700" />
+          <Card className="hover-lift cursor-pointer group" onClick={() => router.push('/dashboard/reports')}>
+            <CardHeader className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950 dark:to-pink-950 border-b border-purple-100 dark:border-purple-900">
+              <CardTitle className="flex items-center gap-3 text-gray-900 dark:text-gray-100">
+                <div className="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg group-hover:bg-purple-200 dark:group-hover:bg-purple-800 transition-colors">
+                  <BarChart3 className="h-6 w-6 text-purple-600 dark:text-purple-300" />
+                </div>
                 <span>Reports & Analytics</span>
               </CardTitle>
-              <CardDescription className="text-gray-800 font-semibold">
-                View detailed reports, recent activities and business insights
-              </CardDescription>
+              <CardDescription className="text-gray-600 dark:text-gray-400">View detailed reports, recent activities and business insights</CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
-              <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 flex items-center justify-center space-x-2 border-2 border-purple-700">
+              <Button className="w-full gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700">
                 <span>View Reports</span>
-                <ArrowRight className="h-5 w-5" />
+                <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </Button>
             </CardContent>
           </Card>
         </div>
 
-        {/* Recent Activity & Alerts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Top Selling Products */}
           {!loading && reports && reports.topSellingProducts.length > 0 && (
-            <Card className="bg-white border border-slate-200 shadow-sm">
-              <CardHeader className="bg-slate-50 border-b border-slate-200">
-                <CardTitle className="flex items-center space-x-3 text-slate-900">
-                  <TrendingUp className="h-5 w-5 text-green-600" />
+            <Card className="card-modern">
+              <CardHeader className="bg-gradient-to-r from-slate-50 to-gray-50 dark:from-slate-900 dark:to-gray-900 border-b border-gray-100 dark:border-gray-800">
+                <CardTitle className="flex items-center gap-3 dark:text-gray-100">
+                  <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
                   <span>Top Selling Products</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6">
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {reports.topSellingProducts.slice(0, 5).map((product, index) => (
-                    <div key={product._id} className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors">
-                      <div className="flex items-center space-x-4">
-                        <div className="w-10 h-10 bg-blue-100 border border-blue-200 rounded-full flex items-center justify-center">
-                          <span className="text-sm font-bold text-blue-700">#{index + 1}</span>
+                    <div key={product._id} className="flex items-center justify-between p-4 bg-gradient-to-r from-slate-50 to-gray-50 dark:from-slate-800 dark:to-gray-800 rounded-xl hover:from-blue-50 hover:to-indigo-50 dark:hover:from-blue-950 dark:hover:to-indigo-950 transition-all duration-200 hover-scale border border-gray-100 dark:border-gray-700">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-sm">
+                          <span className="text-sm font-bold text-white">#{index + 1}</span>
                         </div>
                         <div>
-                          <p className="font-semibold text-slate-900">{product._id}</p>
-                          <p className="text-sm text-slate-600">{product.orderCount} orders</p>
+                          <p className="font-semibold text-gray-900 dark:text-gray-100">{product._id}</p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">{product.orderCount} orders</p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold text-slate-900">{product.totalSold} sold</p>
-                        <p className="text-sm font-semibold text-green-600">${(product.totalRevenue || 0).toLocaleString()}</p>
+                        <p className="font-bold text-gray-900 dark:text-gray-100">{product.totalSold} sold</p>
+                        <p className="text-sm font-semibold text-green-600 dark:text-green-400">${(product.totalRevenue || 0).toLocaleString()}</p>
                       </div>
                     </div>
                   ))}
@@ -279,56 +252,45 @@ export default function HomePage() {
             </Card>
           )}
 
-          {/* Stock Alerts */}
           {!loading && reports && (reports.overview.lowStockItems > 0 || reports.overview.outOfStockItems > 0) && (
-            <Card className="bg-white border border-slate-200 shadow-sm">
-              <CardHeader className="bg-slate-50 border-b border-slate-200">
-                <CardTitle className="flex items-center space-x-3 text-slate-900">
-                  <AlertTriangle className="h-5 w-5 text-yellow-600" />
+            <Card className="card-modern">
+              <CardHeader className="bg-gradient-to-r from-slate-50 to-gray-50 dark:from-slate-900 dark:to-gray-900 border-b border-gray-100 dark:border-gray-800">
+                <CardTitle className="flex items-center gap-3 dark:text-gray-100">
+                  <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
                   <span>Stock Alerts</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6">
                 <div className="space-y-4">
                   {reports.overview.lowStockItems > 0 && (
-                    <div className="status-pending p-4 rounded-lg border">
+                    <div className="status-pending rounded-xl">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                        <div className="flex items-center gap-3">
+                          <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
                           <div>
-                            <p className="font-semibold text-yellow-800">Low Stock Items</p>
-                            <p className="text-sm text-yellow-700">Items running low on inventory</p>
+                            <p className="font-semibold text-amber-900 dark:text-amber-200">Low Stock Items</p>
+                            <p className="text-sm text-amber-700 dark:text-amber-400">Items running low on inventory</p>
                           </div>
                         </div>
-                        <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300 font-bold">
-                          {reports.overview.lowStockItems}
-                        </Badge>
+                        <Badge className="badge-warning">{reports.overview.lowStockItems}</Badge>
                       </div>
                     </div>
                   )}
-
                   {reports.overview.outOfStockItems > 0 && (
-                    <div className="status-cancelled p-4 rounded-lg border">
+                    <div className="status-cancelled rounded-xl">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <AlertTriangle className="h-5 w-5 text-red-600" />
+                        <div className="flex items-center gap-3">
+                          <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
                           <div>
-                            <p className="font-semibold text-red-800">Out of Stock</p>
-                            <p className="text-sm text-red-700">Items completely out of stock</p>
+                            <p className="font-semibold text-red-900 dark:text-red-200">Out of Stock</p>
+                            <p className="text-sm text-red-700 dark:text-red-400">Items completely out of stock</p>
                           </div>
                         </div>
-                        <Badge className="bg-red-100 text-red-800 border-red-300 font-bold">
-                          {reports.overview.outOfStockItems}
-                        </Badge>
+                        <Badge className="badge-error">{reports.overview.outOfStockItems}</Badge>
                       </div>
                     </div>
                   )}
-
-                  <Button 
-                    variant="outline" 
-                    className="w-full mt-6 border-slate-300 text-slate-700 hover:bg-slate-50"
-                    onClick={() => router.push('/dashboard?filter=lowStock')}
-                  >
+                  <Button variant="outline" className="w-full mt-4" onClick={() => router.push('/dashboard?filter=lowStock')}>
                     View All Stock Issues
                   </Button>
                 </div>
@@ -336,35 +298,13 @@ export default function HomePage() {
             </Card>
           )}
         </div>
-
-        {/* Loading State */}
-        {loading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[...Array(4)].map((_, i) => (
-              <Card key={i}>
-                <CardHeader>
-                  <div className="h-4 bg-gray-200 rounded animate-pulse" />
-                </CardHeader>
-                <CardContent>
-                  <div className="h-8 bg-gray-200 rounded animate-pulse mb-2" />
-                  <div className="h-3 bg-gray-200 rounded animate-pulse" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
       </main>
 
-      {/* Footer */}
-      <footer className="bg-white border-t mt-12">
+      <footer className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg border-t border-gray-200 dark:border-gray-800 mt-12 transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex justify-between items-center">
-            <p className="text-sm text-gray-500">
-              © 2025 Zargon Inventory Management System
-            </p>
-            <p className="text-sm text-gray-500">
-              Last updated: {new Date().toLocaleDateString()}
-            </p>
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+            <p className="text-sm text-gray-600 dark:text-gray-400">© 2025 Zargon Inventory Management System</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Last updated: {new Date().toLocaleDateString()}</p>
           </div>
         </div>
       </footer>

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -19,7 +19,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning={true}>
-      <body className={`${inter.className} antialiased`} suppressHydrationWarning={true}>
+      <body className={`${inter.className} antialiased overflow-x-hidden`} suppressHydrationWarning={true}>
         <AuthProvider>
           {children}
         </AuthProvider>

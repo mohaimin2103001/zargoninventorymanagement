@@ -9,6 +9,7 @@ import { ActivityReport } from '@/components/ui/activity-report';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import AboutDeveloper from '@/components/ui/about-developer';
 
 interface User {
   id: string;
@@ -199,6 +200,9 @@ export default function AdminPage() {
           </Button>
         </div>
       </div>
+
+      {/* About Developer Section */}
+      <AboutDeveloper />
     </div>
   );
 }

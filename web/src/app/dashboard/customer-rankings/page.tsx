@@ -19,6 +19,7 @@ import {
   ShoppingCart,
   Clock
 } from 'lucide-react';
+import AboutDeveloper from '@/components/ui/about-developer';
 
 interface CustomerRanking {
   _id: { phone: string; address: string };
@@ -408,6 +409,9 @@ export default function CustomerRankingsPage() {
           </div>
         ))
       )}
+
+      {/* About Developer Section */}
+      <AboutDeveloper />
     </div>
   );
 }

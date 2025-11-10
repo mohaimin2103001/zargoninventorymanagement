@@ -24,6 +24,7 @@ import {
   Activity,
   Percent
 } from 'lucide-react';
+import AboutDeveloper from '@/components/ui/about-developer';
 
 interface ABCAnalysis {
   summary: { A: number; B: number; C: number };
@@ -1440,6 +1441,9 @@ export default function AdvancedAnalyticsPage() {
           )}
         </div>
       )}
+
+      {/* About Developer Section */}
+      <AboutDeveloper />
     </HydrationSafe>
   );
 }

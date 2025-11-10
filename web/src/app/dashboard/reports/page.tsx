@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { TrendingUp, Package, AlertTriangle, XCircle } from 'lucide-react';
+import AboutDeveloper from '@/components/ui/about-developer';
 
 export default function ReportsPage() {
   const [reports, setReports] = useState<ReportsData | null>(null);
@@ -279,6 +280,9 @@ export default function ReportsPage() {
           )}
         </div>
       )}
+
+      {/* About Developer Section */}
+      <AboutDeveloper />
     </div>
   );
 }
