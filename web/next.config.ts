@@ -16,6 +16,10 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Force rebuild - environment variable fix
+  env: {
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+  },
 };
 
 export default nextConfig;
